@@ -36,18 +36,12 @@ random_hard_buffer: .word 0 0 0 0 0 0 0 0
 .text
 .globl main
 main:
-#jal mining_melancholy
-
 #jal def_fundo
-
 intro:
 	# display START
 	lw $a0, branco
 	lw $a1, amarelo_claro
 	jal display_enter
-	
-	#li $v0, 12
-	#syscall
 	jal key_wait
 	lb	$t0, 0xffff0004
 	lb $t1, enter
@@ -59,108 +53,84 @@ end_intro:
 	li $a2, 24
 	li $a3, 87
 	syscall
-	
 	# mark off display START
 	lw $a0, preto
 	lw $a1, preto
 	jal display_enter
-
-#jal key_wait
-
-#jal key_cores
-
 enter_key:
 # display easy and hard difficulty
-lw $a0, branco
-lw $a1, amarelo_aceso
-jal display_easy
-lw $a0, vermelho_claro
-lw $a1, amarelo_aceso
-jal display_hard
-
-#li $v0, 12
-#syscall
-jal key_wait
-lb	$s0, 0xffff0004
-
-lb   $t0, key_easy
-lb   $t1, key_hard
-sne  $t3, $s0, $t0
-sne  $t4, $s0, $t1
-and  $t3, $t3, $t4
-bnez $t3, enter_key
-
+	lw $a0, branco
+	lw $a1, amarelo_aceso
+	jal display_easy
+	lw $a0, vermelho_claro
+	lw $a1, amarelo_aceso
+	jal display_hard
+	jal key_wait
+	lb	$s0, 0xffff0004
+	lb   $t0, key_easy
+	lb   $t1, key_hard
+	sne  $t3, $s0, $t0
+	sne  $t4, $s0, $t1
+	and  $t3, $t3, $t4
+	bnez $t3, enter_key
 if_difficulty:
-		lb  $t0, key_easy
-		lb  $t1, key_hard
-		beq $s0, $t0, difficulty_easy
-		beq $s0, $t1, difficulty_hard
-		
-		difficulty_easy: 
-				# mark easy display and mark off hard display
-				lw $a0, branco
-				lw $a1, amarelo_aceso
-				jal display_easy
-				
-				li $v0, 31
-				li $a0, 69
-				li $a1, 400
-				li $a2, 24
-				li $a3, 87
-				syscall
-				
-				lw $a0, preto
-				lw $a1, amarelo_aceso
-				jal display_hard
-				
-				# level easy
-				li $t5, 4
-				
-				jal key_wait
-				lb	$t4, 0xffff0004
-				lb $t2, enter
-				lb $t3, key_hard
-				
-				li $t6, 0 # i = 0
-				beq $t4, $t2, while_rand_easy
-				beq $t4, $t3, difficulty_hard
-				j difficulty_easy
-				
-		difficulty_hard:
-				# mark hard display and mark off easy display
-				lw $a0, vermelho_claro
-				lw $a1, amarelo_aceso
-				jal display_hard
-				
-				li $v0, 31
-				li $a0, 69
-				li $a1, 400
-				li $a2, 24
-				li $a3, 87
-				syscall
-				
-				lw $a0, preto
-				lw $a1, amarelo_aceso
-				jal display_easy
-				
-				# level hard
-				li $t5, 8
-				
-				jal key_wait
-				lb	$t4, 0xffff0004
-				
-				lb $t2, enter
-				lb $t3, key_easy
-				
-				beq $t4, $t2, while_rand_hard
-				beq $t4, $t3, difficulty_easy
-				j difficulty_hard
-
+	lb  $t0, key_easy
+	lb  $t1, key_hard
+	beq $s0, $t0, difficulty_easy
+	beq $s0, $t1, difficulty_hard
+difficulty_easy: 
+	# mark easy display and mark off hard display
+	lw $a0, branco
+	lw $a1, amarelo_aceso
+	jal display_easy	
+	# som do botao
+	li $v0, 31
+	li $a0, 69
+	li $a1, 400
+	li $a2, 24
+	li $a3, 87
+	syscall		
+	lw $a0, preto
+	lw $a1, amarelo_aceso
+	jal display_hard	
+	# level easy
+	li $t5, 4	
+	jal key_wait
+	lb	$t4, 0xffff0004
+	lb $t2, enter
+	lb $t3, key_hard			
+	li $t6, 0 # i = 0
+	beq $t4, $t2, while_rand_easy
+	beq $t4, $t3, difficulty_hard
+	j difficulty_easy	
+difficulty_hard:
+	# mark hard display and mark off easy display
+	lw $a0, vermelho_claro
+	lw $a1, amarelo_aceso
+	jal display_hard		
+	#som do botao
+	li $v0, 31
+	li $a0, 69
+	li $a1, 400
+	li $a2, 24
+	li $a3, 87
+	syscall	
+	lw $a0, preto
+	lw $a1, amarelo_aceso
+	jal display_easy		
+	# level hard
+	li $t5, 8			
+	jal key_wait
+	lb	$t4, 0xffff0004			
+	lb $t2, enter
+	lb $t3, key_easy		
+	li $t6, 0 # i = 0
+	beq $t4, $t2, while_rand_hard
+	beq $t4, $t3, difficulty_easy
+	j difficulty_hard
 while_rand_easy:
-	beqz $t5, end_while_rand
-	
+	beqz $t5, end_while_rand	
 	jal generate_random
-	
 	la $t0, random_easy_buffer
 	# prepara posicao do buffer
 	mul $t3, $t6, 4
@@ -168,165 +138,131 @@ while_rand_easy:
 	sw $v0, 0($t2)
 	addi $t6, $t6, 1	# i++
 	addi $t5, $t5, -1
-	ble $t1, 3, if_i
+	ble $t1, 3, if_i_easy
 	li $t1, 0
-	if_i: nop
-	
+	if_i_easy: nop	
 	j while_rand_easy
-	
-
 while_rand_hard:
 	beqz $t5, end_while_rand
-	
 	jal generate_random
-	
+	la $t0, random_hard_buffer
+	# prepara posicao do buffer
+	mul $t3, $t6, 4
+	add $t2, $t3, $t0
+	sw $v0, 0($t2)
+	addi $t6, $t6, 1	# i++
 	addi $t5, $t5, -1
+	ble $t1, 7, if_i_hard
+	li $t1, 0
+	if_i_hard: nop
 	j while_rand_hard
-	
 end_while_rand: nop
-la $t0, random_easy_buffer
-li $v0, 1
-lw $a0, 0($t0)
-syscall
-li $v0, 1
-lw $a0, 4($t0)
-syscall
-li $v0, 1
-lw $a0, 8($t0)
-syscall
-li $v0, 1
-lw $a0, 12($t0)
-syscall
 j end
-
-
 generate_random:
-		addiu $sp, $sp, -16
-		sw    $a0, 0($sp)
-		sw    $a1, 4($sp)
-		sw    $s0, 8($sp)
-		sw    $ra  12($sp)
-		
-		#  generate random number -> range [0 to 3]
-		li $v0, 42
-		li $a0, 0
-		li $a1, 4
+	addiu $sp, $sp, -16
+	sw    $a0, 0($sp)
+	sw    $a1, 4($sp)
+	sw    $s0, 8($sp)
+	sw    $ra  12($sp)
+	#  generate random number -> range [0 to 3]
+	li $v0, 42
+	li $a0, 0
+	li $a1, 4
+	syscall
+	move $s0, $a0	
+	beqz $a0, if_0
+	beq $a0, 1, if_1
+	beq $a0, 2, if_2
+	beq $a0, 3, if_3
+	j endif_range
+	if_0:
+		lw $a0, verde_aceso
+		jal arco_verde
+		li $v0, 31
+		li $a0, 69
+		li $a1, 400
+		li $a2, 24
+		li $a3, 87
+		syscall	
+		# sleep 1000 ms
+		li $v0, 32
+		li $a0, 1000
+		syscall		
+		lw $a0, verde_apagado
+		jal arco_verde
+		# sleep 1000 ms
+		li $v0, 32
+		li $a0, 1000
 		syscall
-		
-		move $s0, $a0
-		
-		beqz $a0, if_0
-		beq $a0, 1, if_1
-		beq $a0, 2, if_2
-		beq $a0, 3, if_3
 		j endif_range
-		if_0:
-			lw $a0, verde_aceso
-			jal arco_verde
-			
-			li $v0, 31
-			li $a0, 69
-			li $a1, 400
-			li $a2, 24
-			li $a3, 87
-			syscall
-			
-			# sleep 1000 ms
-			li $v0, 32
-			li $a0, 1000
-			syscall
-			
-			lw $a0, verde_apagado
-			jal arco_verde
-			# sleep 1000 ms
-			li $v0, 32
-			li $a0, 1000
-			syscall
-			j endif_range
-		if_1:
-			lw $a0, vermelho_aceso
-			jal arco_vermelho
-			
-			li $v0, 31
-			li $a0, 69
-			li $a1, 400
-			li $a2, 24
-			li $a3, 87
-			syscall
-			
-			# sleep 1000 ms
-			li $v0, 32
-			li $a0, 1000
-			syscall
-			
-			lw $a0, vermelho_apagado
-			jal arco_vermelho
-			# sleep 1000 ms
-			li $v0, 32
-			li $a0, 1000
-			syscall
-			j endif_range
-		if_2:
-			lw $a0, amarelo_aceso
-			jal arco_amarelo
-			
-			li $v0, 31
-			li $a0, 69
-			li $a1, 190
-			li $a2, 24
-			li $a3, 87
-			syscall
-			
-			# sleep 1000 ms
-			li $v0, 32
-			li $a0, 1000
-			syscall
-			
-			lw $a0, amarelo_apagado
-			jal arco_amarelo
-			# sleep 1000 ms
-			li $v0, 32
-			li $a0, 1000
-			syscall
-			j endif_range
-		if_3:
-			lw $a0, azul_aceso
-			jal arco_azul
-			
-			li $v0, 31
-			li $a0, 69
-			li $a1, 190
-			li $a2, 24
-			li $a3, 87
-			syscall
-			
-			# sleep 1000 ms
-			li $v0, 32
-			li $a0, 1000
-			syscall
-			
-			lw $a0, azul_apagado
-			jal arco_azul
-			# sleep 1000 ms
-			li $v0, 32
-			li $a0, 1000
-			syscall
-			j endif_range
-		
-		endif_range: nop
-		
+	if_1:
+		lw $a0, vermelho_aceso
+		jal arco_vermelho	
+		li $v0, 31
+		li $a0, 69
+		li $a1, 400
+		li $a2, 24
+		li $a3, 87
+		syscall	
+		# sleep 1000 ms
+		li $v0, 32
+		li $a0, 1000
+		syscall
+		lw $a0, vermelho_apagado
+		jal arco_vermelho
+		# sleep 1000 ms
+		li $v0, 32
+		li $a0, 1000
+		syscall
+		j endif_range
+	if_2:
+		lw $a0, amarelo_aceso
+		jal arco_amarelo
+		li $v0, 31
+		li $a0, 69
+		li $a1, 190
+		li $a2, 24
+		li $a3, 87
+		syscall
+		# sleep 1000 ms
+		li $v0, 32
+		li $a0, 1000
+		syscall
+		lw $a0, amarelo_apagado
+		jal arco_amarelo
+		# sleep 1000 ms
+		li $v0, 32
+		li $a0, 1000
+		syscall
+		j endif_range
+	if_3:
+		lw $a0, azul_aceso
+		jal arco_azul
+		li $v0, 31
+		li $a0, 69
+		li $a1, 190
+		li $a2, 24
+		li $a3, 87
+		syscall
+		# sleep 1000 ms
+		li $v0, 32
+		li $a0, 1000
+		syscall
+		lw $a0, azul_apagado
+		jal arco_azul
+		# sleep 1000 ms
+		li $v0, 32
+		li $a0, 1000
+		syscall
+		j endif_range	
+		endif_range: nop		
 		move $v0, $s0
-		
 		lw    $a0, 0($sp)
 		lw    $a1, 4($sp)
 		lw    $s0, 8($sp)
 		lw    $ra  12($sp)
-		
-		
-		addiu $sp, $sp, 16
-		
+		addiu $sp, $sp, 16		
 		jr $ra
-
 key_cores:
 	addiu $sp, $sp, -24
     	    sw $a0, 0($sp)
