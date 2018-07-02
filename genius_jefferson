@@ -1,0 +1,2677 @@
+.data
+enter: .asciiz "\n"
+verde_aceso: .word 0x30e849
+verde_apagado: .word 0x0a5c15
+vermelho_aceso: .word 0xe83a30
+vermelho_apagado: .word 0x5c0e0a
+amarelo_aceso: .word 0xe8e230
+amarelo_apagado: .word 0x5c590a
+azul_aceso: .word 0x4030e8
+azul_apagado: .word 0x110a5c
+azul_fundo: .word 0x9ce5f4
+cinza_titulo: .word 0xe4e4e4
+branco: .word 0xffffff
+preto: .word 0x000000
+amarelo_claro: .word 0xf4f19c
+vermelho_claro: .word 0xee6d66
+
+key_verde: .asciiz "w"
+key_amarelo: .asciiz "s"
+key_vermelho: .asciiz "e"
+key_azul: .asciiz "d"
+
+key_easy: .asciiz "s"
+key_hard: .asciiz "d"
+
+select_difficulty: .asciiz "\n Entre com a dificuldade: \n\n press [s] or [d]: "
+easy_display: .asciiz "\neasy"
+hard_display: .asciiz "\nhard"
+
+teste_g: .asciiz "\nteste generate: "
+teste_out_g: .asciiz "\nteste fora generate "
+
+random_easy_buffer: .word 0 0 0 0
+random_hard_buffer: .word 0 0 0 0 0 0 0 0
+
+.text
+.globl main
+main:
+#jal mining_melancholy
+
+#jal def_fundo
+
+intro:
+	# display START
+	lw $a0, branco
+	lw $a1, amarelo_claro
+	jal display_enter
+	
+	#li $v0, 12
+	#syscall
+	jal key_wait
+	lb	$t0, 0xffff0004
+	lb $t1, enter
+	bne $t0, $t1, intro
+end_intro:
+	li $v0, 31
+	li $a0, 69
+	li $a1, 400
+	li $a2, 24
+	li $a3, 87
+	syscall
+	
+	# mark off display START
+	lw $a0, preto
+	lw $a1, preto
+	jal display_enter
+
+#jal key_wait
+
+#jal key_cores
+
+enter_key:
+# display easy and hard difficulty
+lw $a0, branco
+lw $a1, amarelo_aceso
+jal display_easy
+lw $a0, vermelho_claro
+lw $a1, amarelo_aceso
+jal display_hard
+
+#li $v0, 12
+#syscall
+jal key_wait
+lb	$s0, 0xffff0004
+
+lb   $t0, key_easy
+lb   $t1, key_hard
+sne  $t3, $s0, $t0
+sne  $t4, $s0, $t1
+and  $t3, $t3, $t4
+bnez $t3, enter_key
+
+if_difficulty:
+		lb  $t0, key_easy
+		lb  $t1, key_hard
+		beq $s0, $t0, difficulty_easy
+		beq $s0, $t1, difficulty_hard
+		
+		difficulty_easy: 
+				# mark easy display and mark off hard display
+				lw $a0, branco
+				lw $a1, amarelo_aceso
+				jal display_easy
+				
+				li $v0, 31
+				li $a0, 69
+				li $a1, 400
+				li $a2, 24
+				li $a3, 87
+				syscall
+				
+				lw $a0, preto
+				lw $a1, amarelo_aceso
+				jal display_hard
+				
+				# level easy
+				li $t5, 4
+				
+				jal key_wait
+				lb	$t4, 0xffff0004
+				lb $t2, enter
+				lb $t3, key_hard
+				
+				li $t6, 0 # i = 0
+				beq $t4, $t2, while_rand_easy
+				beq $t4, $t3, difficulty_hard
+				j difficulty_easy
+				
+		difficulty_hard:
+				# mark hard display and mark off easy display
+				lw $a0, vermelho_claro
+				lw $a1, amarelo_aceso
+				jal display_hard
+				
+				li $v0, 31
+				li $a0, 69
+				li $a1, 400
+				li $a2, 24
+				li $a3, 87
+				syscall
+				
+				lw $a0, preto
+				lw $a1, amarelo_aceso
+				jal display_easy
+				
+				# level hard
+				li $t5, 8
+				
+				jal key_wait
+				lb	$t4, 0xffff0004
+				
+				lb $t2, enter
+				lb $t3, key_easy
+				
+				beq $t4, $t2, while_rand_hard
+				beq $t4, $t3, difficulty_easy
+				j difficulty_hard
+
+while_rand_easy:
+	beqz $t5, end_while_rand
+	
+	jal generate_random
+	
+	la $t0, random_easy_buffer
+	# prepara posicao do buffer
+	mul $t3, $t6, 4
+	add $t2, $t3, $t0
+	sw $v0, 0($t2)
+	addi $t6, $t6, 1	# i++
+	addi $t5, $t5, -1
+	ble $t1, 3, if_i
+	li $t1, 0
+	if_i: nop
+	
+	j while_rand_easy
+	
+
+while_rand_hard:
+	beqz $t5, end_while_rand
+	
+	jal generate_random
+	
+	addi $t5, $t5, -1
+	j while_rand_hard
+	
+end_while_rand: nop
+la $t0, random_easy_buffer
+li $v0, 1
+lw $a0, 0($t0)
+syscall
+li $v0, 1
+lw $a0, 4($t0)
+syscall
+li $v0, 1
+lw $a0, 8($t0)
+syscall
+li $v0, 1
+lw $a0, 12($t0)
+syscall
+j end
+
+
+generate_random:
+		addiu $sp, $sp, -16
+		sw    $a0, 0($sp)
+		sw    $a1, 4($sp)
+		sw    $s0, 8($sp)
+		sw    $ra  12($sp)
+		
+		#  generate random number -> range [0 to 3]
+		li $v0, 42
+		li $a0, 0
+		li $a1, 4
+		syscall
+		
+		move $s0, $a0
+		
+		beqz $a0, if_0
+		beq $a0, 1, if_1
+		beq $a0, 2, if_2
+		beq $a0, 3, if_3
+		j endif_range
+		if_0:
+			lw $a0, verde_aceso
+			jal arco_verde
+			
+			li $v0, 31
+			li $a0, 69
+			li $a1, 400
+			li $a2, 24
+			li $a3, 87
+			syscall
+			
+			# sleep 1000 ms
+			li $v0, 32
+			li $a0, 1000
+			syscall
+			
+			lw $a0, verde_apagado
+			jal arco_verde
+			# sleep 1000 ms
+			li $v0, 32
+			li $a0, 1000
+			syscall
+			j endif_range
+		if_1:
+			lw $a0, vermelho_aceso
+			jal arco_vermelho
+			
+			li $v0, 31
+			li $a0, 69
+			li $a1, 400
+			li $a2, 24
+			li $a3, 87
+			syscall
+			
+			# sleep 1000 ms
+			li $v0, 32
+			li $a0, 1000
+			syscall
+			
+			lw $a0, vermelho_apagado
+			jal arco_vermelho
+			# sleep 1000 ms
+			li $v0, 32
+			li $a0, 1000
+			syscall
+			j endif_range
+		if_2:
+			lw $a0, amarelo_aceso
+			jal arco_amarelo
+			
+			li $v0, 31
+			li $a0, 69
+			li $a1, 190
+			li $a2, 24
+			li $a3, 87
+			syscall
+			
+			# sleep 1000 ms
+			li $v0, 32
+			li $a0, 1000
+			syscall
+			
+			lw $a0, amarelo_apagado
+			jal arco_amarelo
+			# sleep 1000 ms
+			li $v0, 32
+			li $a0, 1000
+			syscall
+			j endif_range
+		if_3:
+			lw $a0, azul_aceso
+			jal arco_azul
+			
+			li $v0, 31
+			li $a0, 69
+			li $a1, 190
+			li $a2, 24
+			li $a3, 87
+			syscall
+			
+			# sleep 1000 ms
+			li $v0, 32
+			li $a0, 1000
+			syscall
+			
+			lw $a0, azul_apagado
+			jal arco_azul
+			# sleep 1000 ms
+			li $v0, 32
+			li $a0, 1000
+			syscall
+			j endif_range
+		
+		endif_range: nop
+		
+		move $v0, $s0
+		
+		lw    $a0, 0($sp)
+		lw    $a1, 4($sp)
+		lw    $s0, 8($sp)
+		lw    $ra  12($sp)
+		
+		
+		addiu $sp, $sp, 16
+		
+		jr $ra
+
+key_cores:
+	addiu $sp, $sp, -24
+    	    sw $a0, 0($sp)
+    	    sw $ra, 4($sp)
+    	    sw $t0, 8($sp)
+    	    sw $t1, 12($sp)
+    	    
+	lb	$t0, 0xffff0004
+	
+	lb	$t1, key_verde
+	beq $t0, $t1, verdinho
+	lb	$t1, key_amarelo
+	beq $t0, $t1, amarelinho
+	lb	$t1, key_vermelho
+	beq $t0, $t1, vermelinho
+	lb	$t1, key_azul
+	beq $t0, $t1, azulzinho
+	j end_key
+	verdinho:	
+			lw $a0, verde_aceso
+			jal arco_verde
+			
+			li $v0, 31
+			li $a0, 69
+			li $a1, 400
+			li $a2, 24
+			li $a3, 87
+			syscall
+			
+			li $v0, 32
+			li $a0, 1000
+			syscall
+			
+			lw $a0, verde_apagado
+			jal arco_verde
+			j end_key
+			
+	amarelinho:	
+			lw $a0, amarelo_aceso
+			jal arco_amarelo
+			
+			li $v0, 31
+			li $a0, 69
+			li $a1, 400
+			li $a2, 24
+			li $a3, 87
+			syscall
+			
+			li $v0, 32
+			li $a0, 1000
+			syscall
+			
+			lw $a0, amarelo_apagado
+			jal arco_amarelo
+			j end_key
+			
+	vermelinho:	
+			lw $a0, vermelho_aceso
+			jal arco_vermelho
+			
+			li $v0, 31
+			li $a0, 69
+			li $a1, 190
+			li $a2, 24
+			li $a3, 87
+			syscall
+			
+			li $v0, 32
+			li $a0, 1000
+			syscall
+			
+			lw $a0, vermelho_apagado
+			jal arco_vermelho
+			j end_key
+			
+			azulzinho:	
+			lw $a0, azul_aceso
+			jal arco_azul
+			
+			li $v0, 31
+			li $a0, 69
+			li $a1, 190
+			li $a2, 24
+			li $a3, 87
+			syscall
+			
+			li $v0, 32
+			li $a0, 1000
+			syscall
+			
+			lw $a0, azul_apagado
+			jal arco_azul
+			j end_key
+			
+end_key: nop
+	
+    	lw $a0, 0($sp)
+    	lw $ra, 4($sp)
+    	lw $t0, 8($sp)
+    	lw $t1, 12($sp)
+    	addiu $sp, $sp, 24
+jr $ra
+	
+	
+
+
+    
+    # Spin-wait for key to be pressed
+    key_wait:
+    	    
+	    lw      $t0, 0xffff0000
+	    andi    $t0, $t0, 0x00000001  # Isolate ready bit
+	    beqz    $t0, key_wait
+    
+	    # Read in new character from keyboard to low byte of $a0
+	    # and clear other 3 bytes of $a0
+	    lbu     $a0, 0xffff0004
+	    
+	    # Print character and newline
+	    li      $v0, 11
+	    syscall
+	    
+	    li      $a0, 10
+	    li      $v0, 11
+	    syscall
+	    
+	    
+	    jr      $ra
+
+display_easy:
+	addiu $sp, $sp, -32
+	sw    $a0, 0($sp)
+	sw    $a1, 4($sp)
+	sw    $s0, 8($sp)
+	sw    $ra, 12($sp)
+	sw    $t0, 16($sp)
+	sw    $t1, 20($sp)
+	sw    $t9, 24($sp)
+	
+	la   $s0, 0x10010000
+	move $t0, $a0
+	
+	addi $t1, $s0, 18952
+		Eeasy1:	
+		sw $t0, 4($t1)
+		sw $t0, 8($t1)
+		sw $t0, 12($t1)
+		addi $t1, $t1, 512
+
+		Eeasy2: 
+			sw $t0, 0($t1)
+			addi $t1, $t1, 512
+		
+		Eeasy3: 
+			sw $t0, 0($t1)
+			sw $t0, 4($t1)
+			sw $t0, 8($t1)
+			addi $t1, $t1, 512
+			
+		Eeasy4:
+		sw $t0, 0($t1)
+		addi $t1, $t1, 512
+		
+		Eeasy5:
+		sw $t0, 4($t1)
+		sw $t0, 8($t1)
+		sw $t0, 12($t1)
+		
+		addi $t1, $s0, 18972
+		Aeasy1:	
+		sw $t0, 4($t1)
+		sw $t0, 8($t1)
+		addi $t1, $t1, 512
+
+		Aeasy2: 
+			sw $t0, 0($t1)
+			sw $t0, 12($t1)
+			addi $t1, $t1, 512
+		
+		Aeasy3: 
+			sw $t0, 0($t1)
+			sw $t0, 4($t1)
+			sw $t0, 8($t1)
+			sw $t0, 12($t1)
+			addi $t1, $t1, 512
+			
+		Aeasy4:
+		sw $t0, 0($t1)
+		sw $t0, 12($t1)
+		addi $t1, $t1, 512
+		
+		Aeasy5:
+		sw $t0, 0($t1)
+		sw $t0, 12($t1)
+		
+		addi $t1, $s0, 18992
+		Seasy1:	
+		sw $t0, 4($t1)
+		sw $t0, 8($t1)
+		sw $t0, 12($t1)
+		addi $t1, $t1, 512
+
+		Seasy2: 
+			sw $t0, 0($t1)
+			addi $t1, $t1, 512
+		
+		Seasy3: 
+			sw $t0, 4($t1)
+			sw $t0, 8($t1)
+			addi $t1, $t1, 512
+			
+		Seasy4:
+		sw $t0, 12($t1)
+		addi $t1, $t1, 512
+		
+		Seasy5:
+		sw $t0, 0($t1)
+		sw $t0, 4($t1)
+		sw $t0, 8($t1)
+		
+		addi $t1, $s0, 19012
+		Yeasy1:	
+		sw $t0, 0($t1)
+		sw $t0, 16($t1)
+		addi $t1, $t1, 512
+
+		Yeasy2: 
+			sw $t0, 4($t1)
+			sw $t0, 12($t1)
+			addi $t1, $t1, 512
+		
+		Yeasy3: 
+			sw $t0, 8($t1)
+			addi $t1, $t1, 512
+			
+		Yeasy4:
+		sw $t0, 8($t1)
+		addi $t1, $t1, 512
+		
+		Yeasy5:
+		sw $t0, 8($t1)
+		
+		move $t0, $a1
+		addi $t1, $s0, 22560
+		SSeasy1:	
+		sw $t0, 4($t1)
+		sw $t0, 8($t1)
+		sw $t0, 12($t1)
+		addi $t1, $t1, 512
+
+		SSeasy2: 
+			sw $t0, 0($t1)
+			addi $t1, $t1, 512
+		
+		SSeasy3: 
+			sw $t0, 4($t1)
+			sw $t0, 8($t1)
+			addi $t1, $t1, 512
+			
+		SSeasy4:
+		sw $t0, 12($t1)
+		addi $t1, $t1, 512
+		
+		SSeasy5:
+		sw $t0, 0($t1)
+		sw $t0, 4($t1)
+		sw $t0, 8($t1)
+	
+	lw    $a0, 0($sp)
+	lw    $a1, 4($sp)
+	lw    $s0, 8($sp)
+	lw    $ra, 12($sp)
+	lw    $t0, 16($sp)
+	lw    $t1, 20($sp)
+	lw    $t9, 24($sp)
+	addiu $sp, $sp, 32
+	
+	jr $ra
+	
+display_hard:
+	addiu $sp, $sp, -32
+	sw    $a0, 0($sp)
+	sw    $a1, 4($sp)
+	sw    $s0, 8($sp)
+	sw    $ra, 12($sp)
+	sw    $t0, 16($sp)
+	sw    $t1, 20($sp)
+	sw    $t9, 24($sp)
+	
+	la   $s0, 0x10010000
+	move $t0, $a0
+	
+	addi $t1, $s0, 19044
+		Hhard1:	
+		sw $t0, 0($t1)
+		sw $t0, 12($t1)
+		addi $t1, $t1, 512
+
+		Hhard2: 
+			sw $t0, 0($t1)
+			sw $t0, 12($t1)
+			addi $t1, $t1, 512
+		
+		Hhard3: 
+			sw $t0, 0($t1)
+			sw $t0, 4($t1)
+			sw $t0, 8($t1)
+			sw $t0, 12($t1)
+			addi $t1, $t1, 512
+			
+		Hhard4:
+		sw $t0, 0($t1)
+		sw $t0, 12($t1)
+		addi $t1, $t1, 512
+		
+		Hhard5:
+		sw $t0, 0($t1)
+		sw $t0, 12($t1)
+	
+	addi $t1, $s0, 19064
+		Ahard1:	
+		sw $t0, 4($t1)
+		sw $t0, 8($t1)
+		addi $t1, $t1, 512
+
+		Ahard2: 
+			sw $t0, 0($t1)
+			sw $t0, 12($t1)
+			addi $t1, $t1, 512
+		
+		Ahard3: 
+			sw $t0, 0($t1)
+			sw $t0, 4($t1)
+			sw $t0, 8($t1)
+			sw $t0, 12($t1)
+			addi $t1, $t1, 512
+			
+		Ahard4:
+		sw $t0, 0($t1)
+		sw $t0, 12($t1)
+		addi $t1, $t1, 512
+		
+		Ahard5:
+		sw $t0, 0($t1)
+		sw $t0, 12($t1)
+		
+		addi $t1, $s0, 19084
+		Rhard1:	
+		sw $t0, 0($t1)
+		sw $t0, 4($t1)
+		addi $t1, $t1, 512
+
+		Rhard2: 
+		sw $t0, 0($t1)
+		sw $t0, 8($t1)
+		addi $t1, $t1, 512
+		
+		Rhard3: 
+		sw $t0, 0($t1)
+		sw $t0, 4($t1)
+		addi $t1, $t1, 512
+			
+		Rhard4:
+		sw $t0, 0($t1)
+		sw $t0, 8($t1)
+		addi $t1, $t1, 512
+		
+		Rhard5:
+		sw $t0, 0($t1)
+		sw $t0, 8($t1)
+		
+		addi $t1, $s0, 19100
+		Dhard1:	
+		sw $t0, 0($t1)
+		sw $t0, 4($t1)
+		addi $t1, $t1, 512
+
+		Dhard2: 
+		sw $t0, 0($t1)
+		sw $t0, 8($t1)
+		addi $t1, $t1, 512
+		
+		Dhard3: 
+		sw $t0, 0($t1)
+		sw $t0, 8($t1)
+		addi $t1, $t1, 512
+			
+		Dhard4:
+		sw $t0, 0($t1)
+		sw $t0, 8($t1)
+		addi $t1, $t1, 512
+		
+		Dhard5:
+		sw $t0, 0($t1)
+		sw $t0, 4($t1)
+		
+		move $t0, $a1
+		addi $t1, $s0, 22648
+		DDhard1:	
+		sw $t0, 0($t1)
+		sw $t0, 4($t1)
+		addi $t1, $t1, 512
+
+		DDhard2: 
+		sw $t0, 0($t1)
+		sw $t0, 8($t1)
+		addi $t1, $t1, 512
+		
+		DDhard3: 
+		sw $t0, 0($t1)
+		sw $t0, 8($t1)
+		addi $t1, $t1, 512
+			
+		DDhard4:
+		sw $t0, 0($t1)
+		sw $t0, 8($t1)
+		addi $t1, $t1, 512
+		
+		DDhard5:
+		sw $t0, 0($t1)
+		sw $t0, 4($t1)
+	
+	lw    $a0, 0($sp)
+	lw    $a1, 4($sp)
+	lw    $s0, 8($sp)
+	lw    $ra, 12($sp)
+	lw    $t0, 16($sp)
+	lw    $t1, 20($sp)
+	lw    $t9, 24($sp)
+	addiu $sp, $sp, 32
+	
+	jr $ra
+
+display_enter:
+	addiu $sp, $sp, -32
+	sw    $a0, 0($sp)
+	sw    $a1, 4($sp)
+	sw    $s0, 8($sp)
+	sw    $ra, 12($sp)
+	sw    $t0, 16($sp)
+	sw    $t1, 20($sp)
+	sw    $t9, 24($sp)
+	
+	la   $s0, 0x10010000
+	move $t0, $a0
+		addi $t1, $s0, 8244
+		P1:	
+		sw $t0, 0($t1)
+		sw $t0, 4($t1)
+		addi $t1, $t1, 512
+
+		P2: 
+		sw $t0, 0($t1)
+		sw $t0, 8($t1)
+		addi $t1, $t1, 512
+		
+		P3: 
+		sw $t0, 0($t1)
+		sw $t0, 4($t1)
+		addi $t1, $t1, 512
+			
+		P4:
+		sw $t0, 0($t1)
+		addi $t1, $t1, 512
+		
+		P5:
+		sw $t0, 0($t1)
+		
+		addi $t1, $s0, 8260
+		R1:	
+		sw $t0, 0($t1)
+		sw $t0, 4($t1)
+		addi $t1, $t1, 512
+
+		R2: 
+		sw $t0, 0($t1)
+		sw $t0, 8($t1)
+		addi $t1, $t1, 512
+		
+		R3: 
+		sw $t0, 0($t1)
+		sw $t0, 4($t1)
+		addi $t1, $t1, 512
+			
+		R4:
+		sw $t0, 0($t1)
+		sw $t0, 8($t1)
+		addi $t1, $t1, 512
+		
+		R5:
+		sw $t0, 0($t1)
+		sw $t0, 8($t1)
+		
+		addi $t1, $s0, 8276
+		E1:	
+		sw $t0, 4($t1)
+		sw $t0, 8($t1)
+		sw $t0, 12($t1)
+		addi $t1, $t1, 512
+
+		E2: 
+			sw $t0, 0($t1)
+			addi $t1, $t1, 512
+		
+		E3: 
+			sw $t0, 0($t1)
+			sw $t0, 4($t1)
+			sw $t0, 8($t1)
+			addi $t1, $t1, 512
+			
+		E4:
+		sw $t0, 0($t1)
+		addi $t1, $t1, 512
+		
+		E5:
+		sw $t0, 4($t1)
+		sw $t0, 8($t1)
+		sw $t0, 12($t1)
+		
+		addi $t1, $s0, 8296
+		S1:	
+		sw $t0, 4($t1)
+		sw $t0, 8($t1)
+		sw $t0, 12($t1)
+		addi $t1, $t1, 512
+
+		S2: 
+			sw $t0, 0($t1)
+			addi $t1, $t1, 512
+		
+		S3: 
+			sw $t0, 4($t1)
+			sw $t0, 8($t1)
+			addi $t1, $t1, 512
+			
+		S4:
+		sw $t0, 12($t1)
+		addi $t1, $t1, 512
+		
+		S5:
+		sw $t0, 0($t1)
+		sw $t0, 4($t1)
+		sw $t0, 8($t1)
+		
+		addi $t1, $s0, 8316
+		SS1:	
+		sw $t0, 4($t1)
+		sw $t0, 8($t1)
+		sw $t0, 12($t1)
+		addi $t1, $t1, 512
+
+		SS2: 
+			sw $t0, 0($t1)
+			addi $t1, $t1, 512
+		
+		SS3: 
+			sw $t0, 4($t1)
+			sw $t0, 8($t1)
+			addi $t1, $t1, 512
+			
+		SS4:
+		sw $t0, 12($t1)
+		addi $t1, $t1, 512
+		
+		SS5:
+		sw $t0, 0($t1)
+		sw $t0, 4($t1)
+		sw $t0, 8($t1)
+		
+		move $t0, $a1
+		addi $t1, $s0, 10804
+		Eenter1:	
+		sw $t0, 4($t1)
+		sw $t0, 8($t1)
+		sw $t0, 12($t1)
+		addi $t1, $t1, 512
+
+		Eenter2: 
+			sw $t0, 0($t1)
+			addi $t1, $t1, 512
+		
+		Eenter3: 
+			sw $t0, 0($t1)
+			sw $t0, 4($t1)
+			sw $t0, 8($t1)
+			addi $t1, $t1, 512
+			
+		Eenter4:
+		sw $t0, 0($t1)
+		addi $t1, $t1, 512
+		
+		Eenter5:
+		sw $t0, 4($t1)
+		sw $t0, 8($t1)
+		sw $t0, 12($t1)
+		
+		addi $t1, $s0, 10824
+		Nenter1:	
+		sw $t0, 0($t1)
+		sw $t0, 16($t1)
+		addi $t1, $t1, 512
+
+		Nenter2: 
+		sw $t0, 0($t1)
+		sw $t0, 4($t1)
+		sw $t0, 16($t1)
+		addi $t1, $t1, 512
+		
+		Nenter3: 
+		sw $t0, 0($t1)
+		sw $t0, 8($t1)
+		sw $t0, 16($t1)
+		addi $t1, $t1, 512
+			
+		Nenter4:
+		sw $t0, 0($t1)
+		sw $t0, 12($t1)
+		sw $t0, 16($t1)
+		addi $t1, $t1, 512
+		
+		Nenter5:
+		sw $t0, 0($t1)
+		sw $t0, 16($t1)
+		
+		addi $t1, $s0, 10848
+		Tenter1:	
+		sw $t0, 0($t1)
+		sw $t0, 4($t1)
+		sw $t0, 8($t1)
+		sw $t0, 12($t1)
+		sw $t0, 16($t1)
+		addi $t1, $t1, 512
+
+		Tenter2: 
+		sw $t0, 8($t1)
+		addi $t1, $t1, 512
+		
+		Tenter3: 
+		sw $t0, 8($t1)
+		addi $t1, $t1, 512
+			
+		Tenter4:
+		sw $t0, 8($t1)
+		addi $t1, $t1, 512
+		
+		Tenter5:
+		sw $t0, 8($t1)
+		
+		addi $t1, $s0, 10872
+		EEenter1:	
+		sw $t0, 4($t1)
+		sw $t0, 8($t1)
+		sw $t0, 12($t1)
+		addi $t1, $t1, 512
+
+		EEenter2: 
+			sw $t0, 0($t1)
+			addi $t1, $t1, 512
+		
+		EEenter3: 
+			sw $t0, 0($t1)
+			sw $t0, 4($t1)
+			sw $t0, 8($t1)
+			addi $t1, $t1, 512
+			
+		EEenter4:
+		sw $t0, 0($t1)
+		addi $t1, $t1, 512
+		
+		EEenter5:
+		sw $t0, 4($t1)
+		sw $t0, 8($t1)
+		sw $t0, 12($t1)
+		
+		addi $t1, $s0, 10892
+		Renter1:	
+		sw $t0, 0($t1)
+		sw $t0, 4($t1)
+		addi $t1, $t1, 512
+
+		Renter2: 
+		sw $t0, 0($t1)
+		sw $t0, 8($t1)
+		addi $t1, $t1, 512
+		
+		Renter3: 
+		sw $t0, 0($t1)
+		sw $t0, 4($t1)
+		addi $t1, $t1, 512
+			
+		Renter4:
+		sw $t0, 0($t1)
+		sw $t0, 8($t1)
+		addi $t1, $t1, 512
+		
+		Renter5:
+		sw $t0, 0($t1)
+		sw $t0, 8($t1)
+	
+	lw    $a0, 0($sp)
+	lw    $a1, 4($sp)
+	lw    $s0, 8($sp)
+	lw    $ra, 12($sp)
+	lw    $t0, 16($sp)
+	lw    $t1, 20($sp)
+	lw    $t9, 24($sp)
+	
+	addiu $sp, $sp, 32
+	
+	jr $ra
+
+def_fundo:
+	#addi $s0, $zero, 8192	# quantidade de pontos na tela 512x256 4x4
+	
+	addiu $sp, $sp, -24
+	sw    $a0, 0($sp)
+	sw    $s0, 4($sp)
+	sw    $ra, 8($sp)
+	sw    $t0, 12($sp)
+	sw    $t1, 16($sp)
+	sw    $t9, 20($sp)
+	la   $s0, 0x10010000
+	lw   $t0, azul_fundo
+	addi $t1, $s0, 184
+	li $t9, 0
+	loop1:	
+		bge $t9, 64, endloop1
+		sw $t0, 0($t1)
+		sw $t0, 4($t1)
+		sw $t0, 8($t1)
+		sw $t0, 12($t1)
+		
+		addi $t1, $t1, 512
+		addi $t9, $t9, 1
+		j loop1
+		endloop1: nop
+		
+	la   $s0, 0x10010000
+	lw   $t0, cinza_titulo
+	addi $t1, $s0, 3592
+	li $t9, 0
+	tittle:
+		loopG1:	
+		bge $t9, 2, endG1
+		sw $t0, 0($t1)
+		sw $t0, 4($t1)
+		sw $t0, 8($t1)
+		sw $t0, 12($t1)
+		sw $t0, 16($t1)
+		sw $t0, 20($t1)
+		
+		addi $t1, $t1, 512
+		addi $t9, $t9, 1
+		j loopG1
+		
+		endG1: li $t9, 0
+		
+		loopG2: 
+			bge $t9, 2, endG2
+			sw $t0, 0($t1)
+			sw $t0, 4($t1)
+		
+			addi $t1, $t1, 512
+			addi $t9, $t9, 1
+			j loopG2
+			
+		endG2: li $t9, 0
+		
+		loopG3:
+		bge $t9, 2, endG3
+		sw $t0, 0($t1)
+		sw $t0, 4($t1)
+		sw $t0, 16($t1)
+		sw $t0, 20($t1)
+		
+		addi $t1, $t1, 512
+		addi $t9, $t9, 1
+		j loopG3
+		
+		endG3: li $t9, 0
+		
+		loopG4:
+		bge $t9, 2, endG4
+		sw $t0, 0($t1)
+		sw $t0, 4($t1)
+		sw $t0, 8($t1)
+		sw $t0, 12($t1)
+		sw $t0, 16($t1)
+		sw $t0, 20($t1)
+		
+		addi $t1, $t1, 512
+		addi $t9, $t9, 1
+		j loopG4
+		
+		endG4: li $t9, 0
+		
+		lw   $t0, cinza_titulo
+		addi $t1, $s0, 3624
+		li $t9, 0
+		loopE1:	
+		bge $t9, 2, endE1
+		sw $t0, 0($t1)
+		sw $t0, 4($t1)
+		sw $t0, 8($t1)
+		sw $t0, 12($t1)
+		sw $t0, 16($t1)
+		sw $t0, 20($t1)
+		
+		addi $t1, $t1, 512
+		addi $t9, $t9, 1
+		j loopE1
+		
+		endE1: li $t9, 0
+		
+		loopE2: 
+			bge $t9, 2, endE2
+			sw $t0, 0($t1)
+			sw $t0, 4($t1)
+			bne $t9, 1, bloopE2
+			
+			sw $t0, 8($t1)
+			sw $t0, 12($t1)
+			bloopE2: nop
+			addi $t1, $t1, 512
+			addi $t9, $t9, 1
+			j loopE2
+			
+		endE2: li $t9, 0
+		
+		loopE3: 
+			bge $t9, 2, endE3
+			sw $t0, 0($t1)
+			sw $t0, 4($t1)
+			beq $t9, 1, bloopE3
+			
+			sw $t0, 8($t1)
+			sw $t0, 12($t1)
+			bloopE3: nop
+			addi $t1, $t1, 512
+			addi $t9, $t9, 1
+			j loopE3
+			
+		endE3: li $t9, 0
+		
+		loopE4:
+		bge $t9, 2, endE4
+		sw $t0, 0($t1)
+		sw $t0, 4($t1)
+		sw $t0, 8($t1)
+		sw $t0, 12($t1)
+		sw $t0, 16($t1)
+		sw $t0, 20($t1)
+		
+		addi $t1, $t1, 512
+		addi $t9, $t9, 1
+		j loopE4
+		
+		endE4: li $t9, 0
+		
+		lw   $t0, cinza_titulo
+		addi $t1, $s0, 3656
+		li $t9, 0
+		loopN1:	
+		bge $t9, 2, endN1
+		sw $t0, 0($t1)
+		sw $t0, 4($t1)
+		sw $t0, 20($t1)
+		sw $t0, 24($t1)
+		
+		addi $t1, $t1, 512
+		addi $t9, $t9, 1
+		j loopN1
+		
+		endN1: li $t9, 0
+		
+		loopN2: 
+			bge $t9, 2, endN2
+			sw $t0, 0($t1)
+			sw $t0, 4($t1)
+			sw $t0, 8($t1)
+			bne $t9, 1, bloopN2
+			
+			sw $t0, 12($t1)
+			bloopN2: 
+			sw $t0, 20($t1)
+			sw $t0, 24($t1)
+			
+			addi $t1, $t1, 512
+			addi $t9, $t9, 1
+			j loopN2
+			
+		endN2: li $t9, 0
+		
+		loopN3: 
+			bge $t9, 2, endN3
+			sw $t0, 0($t1)
+			sw $t0, 4($t1)
+			beq $t9, 1, bloopN3
+			
+			sw $t0, 12($t1)
+			bloopN3: 
+			sw $t0, 16($t1)
+			sw $t0, 20($t1)
+			sw $t0, 24($t1)
+			
+			addi $t1, $t1, 512
+			addi $t9, $t9, 1
+			j loopN3
+			
+		endN3: li $t9, 0
+		
+		loopN4:
+		bge $t9, 2, endN4
+		sw $t0, 0($t1)
+		sw $t0, 4($t1)
+		sw $t0, 20($t1)
+		sw $t0, 24($t1)
+		
+		addi $t1, $t1, 512
+		addi $t9, $t9, 1
+		j loopN4
+		
+		endN4: li $t9, 0
+		
+		lw   $t0, cinza_titulo
+		addi $t1, $s0, 3692
+		li $t9, 0
+		loopI1:	
+		bge $t9, 8, endI1
+		sw $t0, 0($t1)
+		sw $t0, 4($t1)
+		
+		addi $t1, $t1, 512
+		addi $t9, $t9, 1
+		j loopI1
+		
+		endI1: li $t9, 0
+		
+		lw   $t0, cinza_titulo
+		addi $t1, $s0, 3708
+		li $t9, 0
+		loopU1:	
+		bge $t9, 6, endU1
+		sw $t0, 0($t1)
+		sw $t0, 4($t1)
+		sw $t0, 16($t1)
+		sw $t0, 20($t1)
+		
+		addi $t1, $t1, 512
+		addi $t9, $t9, 1
+		j loopU1
+		
+		endU1: li $t9, 0
+		
+		loopU2: 
+			bge $t9, 2, endU2
+			sw $t0, 0($t1)
+			sw $t0, 4($t1)
+			sw $t0, 8($t1)
+			sw $t0, 12($t1)
+			sw $t0, 16($t1)
+			sw $t0, 20($t1)
+		
+			addi $t1, $t1, 512
+			addi $t9, $t9, 1
+			j loopU2
+			
+		endU2: li $t9, 0
+		
+		lw   $t0, cinza_titulo
+		addi $t1, $s0, 3740
+		li $t9, 0
+		
+		loopS1:	
+		bge $t9, 2, endS1
+		sw $t0, 8($t1)
+		sw $t0, 12($t1)
+		sw $t0, 16($t1)
+		sw $t0, 20($t1)
+		
+		bne $t9, 1, bloopS1
+		sw $t0, 4($t1)
+		bloopS1: 
+		
+		addi $t1, $t1, 512
+		addi $t9, $t9, 1
+		j loopS1
+		
+		endS1: li $t9, 0
+		
+		loopS2: 
+			bge $t9, 2, endS2
+			sw $t0, 0($t1)
+			sw $t0, 4($t1)
+			bne $t9, 1, bloopS2
+			
+			sw $t0, 8($t1)
+			sw $t0, 12($t1)
+			bloopS2:
+		
+			addi $t1, $t1, 512
+			addi $t9, $t9, 1
+			j loopS2
+			
+		endS2: li $t9, 0
+		
+		loopS3:	
+		bge $t9, 2, endS3
+		beq $t9, 1, bloopS3
+		sw $t0, 8($t1)
+		sw $t0, 12($t1)
+		bloopS3: 
+		sw $t0, 16($t1)
+		sw $t0, 20($t1)
+		
+		addi $t1, $t1, 512
+		addi $t9, $t9, 1
+		j loopS3
+		
+		endS3: li $t9, 0
+		
+		loopS4: 
+			bge $t9, 2, endS4
+			sw $t0, 0($t1)
+			sw $t0, 4($t1)
+			sw $t0, 8($t1)
+			sw $t0, 12($t1)
+			beq $t9, 1, bloopS4
+			sw $t0, 16($t1)
+			bloopS4:
+			addi $t1, $t1, 512
+			addi $t9, $t9, 1
+			j loopS4
+			
+		endS4: li $t9, 0
+					
+		lw $a0, verde_apagado
+		jal arco_verde
+		
+		li $v0, 32
+		li, $a0, 1000
+		syscall
+		
+		lw $a0, vermelho_apagado
+		jal arco_vermelho
+		
+		li $v0, 32
+		li, $a0, 1000
+		syscall
+		
+		lw $a0, amarelo_apagado
+		jal arco_amarelo
+		
+		li $v0, 32
+		li, $a0, 1000
+		syscall
+		
+		lw $a0, azul_apagado
+		jal arco_azul
+		li $t7, 0
+		
+		li $v0, 32
+		li, $a0, 1000
+		syscall
+		
+	lw    $a0, 0($sp)
+	lw    $s0, 4($sp)
+	lw    $ra, 8($sp)
+	lw    $t0, 12($sp)
+	lw    $t1, 16($sp)
+	sw    $t9, 20($sp)
+	addiu $sp, $sp, 24
+		
+	jr $ra
+
+arco_verde:
+
+	# aloca espaco na pilha
+	addiu $sp, $sp, -24
+	
+	# push na pilha
+	sw $a0, 0($sp)
+	sw $s0, 4($sp)
+	sw $t0, 8($sp)
+	sw $t0, 12($sp)
+	sw $ra, 16($sp)
+	
+	la   $s0, 0x10010000
+	addi $t1, $s0, 3368
+	li   $t2, 0
+	linha_1:
+		bge  $t2, 12, endlinha_1
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_1
+	endlinha_1: nop
+	
+	addi $t1, $s0, 3868
+	li $t2, 0
+	linha_2:
+		bge  $t2, 15, endlinha_2
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_2
+	endlinha_2: nop
+		
+	addi $t1, $s0, 4368
+	li $t2, 0
+	linha_3:
+		bge  $t2, 18, endlinha_3
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_3
+	endlinha_3: nop
+	
+	addi $t1, $s0, 4876
+	li $t2, 0
+	linha_4:
+		bge  $t2, 19, endlinha_4
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_4
+	endlinha_4: nop
+	
+	addi $t1, $s0, 5384
+	li $t2, 0
+	linha_5:
+		bge  $t2, 20, endlinha_5
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_5
+	endlinha_5: nop
+	
+	addi $t1, $s0, 5892
+	li $t2, 0
+	linha_6:
+		bge  $t2, 21, endlinha_6
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_6
+	endlinha_6: nop
+	
+	addi $t1, $s0, 6400
+	li $t2, 0
+	linha_7:
+		bge  $t2, 22, endlinha_7
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_7
+	endlinha_7: nop
+	
+	addi $t1, $s0, 6908
+	li $t2, 0
+	linha_8:
+		bge  $t2, 23, endlinha_8
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_8
+	endlinha_8: nop
+	
+	addi $t1, $s0, 7420
+	li $t2, 0
+	linha_9:
+		bge  $t2, 23, endlinha_9
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_9
+	endlinha_9: nop
+	
+	addi $t1, $s0, 7932
+	li $t2, 0
+	linha_10:
+		bge  $t2, 23, endlinha_10
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_10
+	endlinha_10: nop
+	
+	addi $t1, $s0, 8440
+	li $t2, 0
+	linha_11:
+		bge  $t2, 24, endlinha_11
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_11
+	endlinha_11: nop
+	
+	addi $t1, $s0, 8952
+	li $t2, 0
+	linha_12:
+		bge  $t2, 20, endlinha_12
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_12
+	endlinha_12: nop
+	
+	addi $t1, $s0, 9464
+	li $t2, 0
+	linha_13:
+		bge  $t2, 18, endlinha_13
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_13
+	endlinha_13: nop
+	
+	addi $t1, $s0, 9976
+	li $t2, 0
+	linha_14:
+		bge  $t2, 17, endlinha_14
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_14
+	endlinha_14: nop
+	
+	addi $t1, $s0, 10488
+	li $t2, 0
+	linha_15:
+		bge  $t2, 15, endlinha_15
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_15
+	endlinha_15: nop
+	
+	addi $t1, $s0, 10996
+	li $t2, 0
+	linha_16:
+		bge  $t2, 15, endlinha_16
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_16
+	endlinha_16: nop
+	
+	addi $t1, $s0, 11508
+	li $t2, 0
+	linha_17:
+		bge  $t2, 15, endlinha_17
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_17
+	endlinha_17: nop
+	
+	addi $t1, $s0, 12020
+	li $t2, 0
+	linha_18:
+		bge  $t2, 14, endlinha_18
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_18
+	endlinha_18: nop
+	
+	addi $t1, $s0, 12532
+	li $t2, 0
+	linha_19:
+		bge  $t2, 14, endlinha_19
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_19
+	endlinha_19: nop
+	
+	addi $t1, $s0, 13044
+	li $t2, 0
+	linha_20:
+		bge  $t2, 13, endlinha_20
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_20
+	endlinha_20: nop
+	
+	addi $t1, $s0, 13556
+	li $t2, 0
+	linha_21:
+		bge  $t2, 13, endlinha_21
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_21
+	endlinha_21: nop
+	
+	addi $t1, $s0, 14068
+	li $t2, 0
+	linha_22:
+		bge  $t2, 12, endlinha_22
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_22
+	endlinha_22: nop
+	
+	addi $t1, $s0, 14580
+	li $t2, 0
+	linha_23:
+		bge  $t2, 12, endlinha_23
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_23
+	endlinha_23: nop
+	
+	addi $t1, $s0, 15092
+	li $t2, 0
+	linha_24:
+		bge  $t2, 12, endlinha_24
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_24
+	endlinha_24: nop
+	
+	addi $t1, $s0, 15604
+	li $t2, 0
+	linha_25:
+		bge  $t2, 12, endlinha_25
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_25
+	endlinha_25: nop
+	
+	# pop na pilha
+	lw $a0, 0($sp)
+	lw $s0, 4($sp)
+	lw $t0, 8($sp)
+	lw $t1, 12($sp)
+	lw $ra, 16($sp)
+	# desaloca pilha
+	addiu $sp, $sp, 24
+	jr $ra
+	
+arco_vermelho:
+
+	# aloca espaco na pilha
+	addiu $sp, $sp, -24
+	
+	# push na pilha
+	sw $a0, 0($sp)
+	sw $s0, 4($sp)
+	sw $t0, 8($sp)
+	sw $t0, 12($sp)
+	sw $ra, 16($sp)
+	
+	la   $s0, 0x10010000
+	addi $t1, $s0, 3424
+	li   $t2, 0
+	linha_verm_1:
+		bge  $t2, 12, endlinha_verm_1
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_verm_1
+	endlinha_verm_1: nop
+	
+	addi $t1, $s0, 3936
+	li $t2, 0
+	linha_verm_2:
+		bge  $t2, 15, endlinha_verm_2
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_verm_2
+	endlinha_verm_2: nop
+		
+	addi $t1, $s0, 4448
+	li $t2, 0
+	linha_verm_3:
+		bge  $t2, 18, endlinha_verm_3
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_verm_3
+	endlinha_verm_3: nop
+	
+	addi $t1, $s0, 4960
+	li $t2, 0
+	linha_verm_4:
+		bge  $t2, 19, endlinha_verm_4
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_verm_4
+	endlinha_verm_4: nop
+	
+	addi $t1, $s0, 5472
+	li $t2, 0
+	linha_verm_5:
+		bge  $t2, 20, endlinha_verm_5
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_verm_5
+	endlinha_verm_5: nop
+	
+	addi $t1, $s0, 5984
+	li $t2, 0
+	linha_verm_6:
+		bge  $t2, 21, endlinha_verm_6
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_verm_6
+	endlinha_verm_6: nop
+	
+	addi $t1, $s0, 6496
+	li $t2, 0
+	linha_verm_7:
+		bge  $t2, 22, endlinha_verm_7
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_verm_7
+	endlinha_verm_7: nop
+	
+	addi $t1, $s0, 7008
+	li $t2, 0
+	linha_verm_8:
+		bge  $t2, 23, endlinha_verm_8
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_verm_8
+	endlinha_verm_8: nop
+	
+	addi $t1, $s0, 7520
+	li $t2, 0
+	linha_verm_9:
+		bge  $t2, 23, endlinha_verm_9
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_verm_9
+	endlinha_verm_9: nop
+	
+	addi $t1, $s0, 8032
+	li $t2, 0
+	linha_verm_10:
+		bge  $t2, 23, endlinha_verm_10
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_verm_10
+	endlinha_verm_10: nop
+	
+	addi $t1, $s0, 8544
+	li $t2, 0
+	linha_verm_11:
+		bge  $t2, 24, endlinha_verm_11
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_verm_11
+	endlinha_verm_11: nop
+	
+	addi $t1, $s0, 9072
+	li $t2, 0
+	linha_verm_12:
+		bge  $t2, 20, endlinha_verm_12
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_verm_12
+	endlinha_verm_12: nop
+	
+	addi $t1, $s0, 9592
+	li $t2, 0
+	linha_verm_13:
+		bge  $t2, 18, endlinha_verm_13
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_verm_13
+	endlinha_verm_13: nop
+	
+	addi $t1, $s0, 10108
+	li $t2, 0
+	linha_verm_14:
+		bge  $t2, 17, endlinha_verm_14
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_verm_14
+	endlinha_verm_14: nop
+	
+	addi $t1, $s0, 10628
+	li $t2, 0
+	linha_verm_15:
+		bge  $t2, 15, endlinha_verm_15
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_verm_15
+	endlinha_verm_15: nop
+	
+	addi $t1, $s0, 11144
+	li $t2, 0
+	linha_verm_16:
+		bge  $t2, 15, endlinha_verm_16
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_verm_16
+	endlinha_verm_16: nop
+	
+	addi $t1, $s0, 11656
+	li $t2, 0
+	linha_verm_17:
+		bge  $t2, 15, endlinha_verm_17
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_verm_17
+	endlinha_verm_17: nop
+	
+	addi $t1, $s0, 12172
+	li $t2, 0
+	linha_verm_18:
+		bge  $t2, 14, endlinha_verm_18
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_verm_18
+	endlinha_verm_18: nop
+	
+	addi $t1, $s0, 12684
+	li $t2, 0
+	linha_verm_19:
+		bge  $t2, 14, endlinha_verm_19
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_verm_19
+	endlinha_verm_19: nop
+	
+	addi $t1, $s0, 13200
+	li $t2, 0
+	linha_verm_20:
+		bge  $t2, 13, endlinha_verm_20
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_verm_20
+	endlinha_verm_20: nop
+	
+	addi $t1, $s0, 13712
+	li $t2, 0
+	linha_verm_21:
+		bge  $t2, 13, endlinha_verm_21
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_verm_21
+	endlinha_verm_21: nop
+	
+	addi $t1, $s0, 14228
+	li $t2, 0
+	linha_verm_22:
+		bge  $t2, 12, endlinha_verm_22
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_verm_22
+	endlinha_verm_22: nop
+	
+	addi $t1, $s0, 14740
+	li $t2, 0
+	linha_verm_23:
+		bge  $t2, 12, endlinha_verm_23
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_verm_23
+	endlinha_verm_23: nop
+	
+	addi $t1, $s0, 15252
+	li $t2, 0
+	linha_verm_24:
+		bge  $t2, 12, endlinha_verm_24
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_verm_24
+	endlinha_verm_24: nop
+	
+	addi $t1, $s0, 15764
+	li $t2, 0
+	linha_verm_25:
+		bge  $t2, 12, endlinha_verm_25
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_verm_25
+	endlinha_verm_25: nop
+	
+	# pop na pilha
+	lw $a0, 0($sp)
+	lw $s0, 4($sp)
+	lw $t0, 8($sp)
+	lw $t1, 12($sp)
+	lw $ra, 16($sp)
+	# desaloca pilha
+	addiu $sp, $sp, 24
+	jr $ra
+	
+	
+arco_amarelo:
+
+	# aloca espaco na pilha
+	addiu $sp, $sp, -24
+	
+	# push na pilha
+	sw $a0, 0($sp)
+	sw $s0, 4($sp)
+	sw $t0, 8($sp)
+	sw $t0, 12($sp)
+	sw $ra, 16($sp)
+	
+	la   $s0, 0x10010000
+	addi $t1, $s0, 17140
+	li   $t2, 0
+	linha_amar_1:
+		bge  $t2, 12, endlinha_amar_1
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_amar_1
+	endlinha_amar_1: nop
+	
+	addi $t1, $s0, 17652
+	li $t2, 0
+	linha_amar_2:
+		bge  $t2, 12, endlinha_amar_2
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_amar_2
+	endlinha_amar_2: nop
+		
+	addi $t1, $s0, 18164
+	li $t2, 0
+	linha_amar_3:
+		bge  $t2, 12, endlinha_amar_3
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_amar_3
+	endlinha_amar_3: nop
+	
+	addi $t1, $s0, 18676
+	li $t2, 0
+	linha_amar_4:
+		bge  $t2, 12, endlinha_amar_4
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_amar_4
+	endlinha_amar_4: nop
+	
+	addi $t1, $s0, 19188
+	li $t2, 0
+	linha_amar_5:
+		bge  $t2, 13, endlinha_amar_5
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_amar_5
+	endlinha_amar_5: nop
+	
+	addi $t1, $s0, 19700
+	li $t2, 0
+	linha_amar_6:
+		bge  $t2, 13, endlinha_amar_6
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_amar_6
+	endlinha_amar_6: nop
+	
+	addi $t1, $s0, 20212
+	li $t2, 0
+	linha_amar_7:
+		bge  $t2, 14, endlinha_amar_7
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_amar_7
+	endlinha_amar_7: nop
+	
+	addi $t1, $s0, 20724
+	li $t2, 0
+	linha_amar_8:
+		bge  $t2, 15, endlinha_amar_8
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_amar_8
+	endlinha_amar_8: nop
+	
+	addi $t1, $s0, 21236
+	li $t2, 0
+	linha_amar_9:
+		bge  $t2, 15, endlinha_amar_9
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_amar_9
+	endlinha_amar_9: nop
+	
+	addi $t1, $s0, 21748
+	li $t2, 0
+	linha_amar_10:
+		bge  $t2, 16, endlinha_amar_10
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_amar_10
+	endlinha_amar_10: nop
+	
+	addi $t1, $s0, 22264
+	li $t2, 0
+	linha_amar_11:
+		bge  $t2, 17, endlinha_amar_11
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_amar_11
+	endlinha_amar_11: nop
+	
+	addi $t1, $s0, 22776
+	li $t2, 0
+	linha_amar_12:
+		bge  $t2, 18, endlinha_amar_12
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_amar_12
+	endlinha_amar_12: nop
+	
+	addi $t1, $s0, 23288
+	li $t2, 0
+	linha_amar_13:
+		bge  $t2, 20, endlinha_amar_13
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_amar_13
+	endlinha_amar_13: nop
+	
+	addi $t1, $s0, 23800
+	li $t2, 0
+	linha_amar_14:
+		bge  $t2, 24, endlinha_amar_14
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_amar_14
+	endlinha_amar_14: nop
+	
+	addi $t1, $s0, 24316
+	li $t2, 0
+	linha_amar_15:
+		bge  $t2, 23, endlinha_amar_15
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_amar_15
+	endlinha_amar_15: nop
+	
+	addi $t1, $s0, 24828
+	li $t2, 0
+	linha_amar_16:
+		bge  $t2, 23, endlinha_amar_16
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_amar_16
+	endlinha_amar_16: nop
+	
+	addi $t1, $s0, 25340
+	li $t2, 0
+	linha_amar_17:
+		bge  $t2, 23, endlinha_amar_17
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_amar_17
+	endlinha_amar_17: nop
+	
+	addi $t1, $s0, 25856
+	li $t2, 0
+	linha_amar_18:
+		bge  $t2, 22, endlinha_amar_18
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_amar_18
+	endlinha_amar_18: nop
+	
+	addi $t1, $s0, 26372
+	li $t2, 0
+	linha_amar_19:
+		bge  $t2, 21, endlinha_amar_19
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_amar_19
+	endlinha_amar_19: nop
+	
+	addi $t1, $s0, 26888
+	li $t2, 0
+	linha_amar_20:
+		bge  $t2, 20, endlinha_amar_20
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_amar_20
+	endlinha_amar_20: nop
+	
+	addi $t1, $s0, 27404
+	li $t2, 0
+	linha_amar_21:
+		bge  $t2, 19, endlinha_amar_21
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_amar_21
+	endlinha_amar_21: nop
+	
+	addi $t1, $s0, 27920
+	li $t2, 0
+	linha_amar_22:
+		bge  $t2, 18, endlinha_amar_22
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_amar_22
+	endlinha_amar_22: nop
+	
+	addi $t1, $s0, 28444
+	li $t2, 0
+	linha_amar_23:
+		bge  $t2, 15, endlinha_amar_23
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_amar_23
+	endlinha_amar_23: nop
+	
+	addi $t1, $s0, 28968
+	li $t2, 0
+	linha_amar_24:
+		bge  $t2, 12, endlinha_amar_24
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_amar_24
+	endlinha_amar_24: nop
+	
+	
+	# pop na pilha
+	lw $a0, 0($sp)
+	lw $s0, 4($sp)
+	lw $t0, 8($sp)
+	lw $t1, 12($sp)
+	lw $ra, 16($sp)
+	# desaloca pilha
+	addiu $sp, $sp, 24
+	jr $ra
+	
+arco_azul:
+
+	# aloca espaco na pilha
+	addiu $sp, $sp, -24
+	
+	# push na pilha
+	sw $a0, 0($sp)
+	sw $s0, 4($sp)
+	sw $t0, 8($sp)
+	sw $t0, 12($sp)
+	sw $ra, 16($sp)
+	
+	la   $s0, 0x10010000
+	addi $t1, $s0, 17300
+	li   $t2, 0
+	linha_azul_1:
+		bge  $t2, 12, endlinha_azul_1
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_azul_1
+	endlinha_azul_1: nop
+	
+	addi $t1, $s0, 17812
+	li $t2, 0
+	linha_azul_2:
+		bge  $t2, 12, endlinha_azul_2
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_azul_2
+	endlinha_azul_2: nop
+		
+	addi $t1, $s0, 18324
+	li $t2, 0
+	linha_azul_3:
+		bge  $t2, 12, endlinha_azul_3
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_azul_3
+	endlinha_azul_3: nop
+	
+	addi $t1, $s0, 18836
+	li $t2, 0
+	linha_azul_4:
+		bge  $t2, 12, endlinha_azul_4
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_azul_4
+	endlinha_azul_4: nop
+	
+	addi $t1, $s0, 19344
+	li $t2, 0
+	linha_azul_5:
+		bge  $t2, 13, endlinha_azul_5
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_azul_5
+	endlinha_azul_5: nop
+	
+	addi $t1, $s0, 19856
+	li $t2, 0
+	linha_azul_6:
+		bge  $t2, 13, endlinha_azul_6
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_azul_6
+	endlinha_azul_6: nop
+	
+	addi $t1, $s0, 20364
+	li $t2, 0
+	linha_azul_7:
+		bge  $t2, 14, endlinha_azul_7
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_azul_7
+	endlinha_azul_7: nop
+	
+	addi $t1, $s0, 20872
+	li $t2, 0
+	linha_azul_8:
+		bge  $t2, 15, endlinha_azul_8
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_azul_8
+	endlinha_azul_8: nop
+	
+	addi $t1, $s0, 21384
+	li $t2, 0
+	linha_azul_9:
+		bge  $t2, 15, endlinha_azul_9
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_azul_9
+	endlinha_azul_9: nop
+	
+	addi $t1, $s0, 21892
+	li $t2, 0
+	linha_azul_10:
+		bge  $t2, 16, endlinha_azul_10
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_azul_10
+	endlinha_azul_10: nop
+	
+	addi $t1, $s0, 22396
+	li $t2, 0
+	linha_azul_11:
+		bge  $t2, 17, endlinha_azul_11
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_azul_11
+	endlinha_azul_11: nop
+	
+	addi $t1, $s0, 22904
+	li $t2, 0
+	linha_azul_12:
+		bge  $t2, 18, endlinha_azul_12
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_azul_12
+	endlinha_azul_12: nop
+	
+	addi $t1, $s0, 23408
+	li $t2, 0
+	linha_azul_13:
+		bge  $t2, 20, endlinha_azul_13
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_azul_13
+	endlinha_azul_13: nop
+	
+	addi $t1, $s0, 23904
+	li $t2, 0
+	linha_azul_14:
+		bge  $t2, 24, endlinha_azul_14
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_azul_14
+	endlinha_azul_14: nop
+	
+	addi $t1, $s0, 24416
+	li $t2, 0
+	linha_azul_15:
+		bge  $t2, 23, endlinha_azul_15
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_azul_15
+	endlinha_azul_15: nop
+	
+	addi $t1, $s0, 24928
+	li $t2, 0
+	linha_azul_16:
+		bge  $t2, 23, endlinha_azul_16
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_azul_16
+	endlinha_azul_16: nop
+	
+	addi $t1, $s0, 25440
+	li $t2, 0
+	linha_azul_17:
+		bge  $t2, 23, endlinha_azul_17
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_azul_17
+	endlinha_azul_17: nop
+	
+	addi $t1, $s0, 25952
+	li $t2, 0
+	linha_azul_18:
+		bge  $t2, 22, endlinha_azul_18
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_azul_18
+	endlinha_azul_18: nop
+	
+	addi $t1, $s0, 26464
+	li $t2, 0
+	linha_azul_19:
+		bge  $t2, 21, endlinha_azul_19
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_azul_19
+	endlinha_azul_19: nop
+	
+	addi $t1, $s0, 26976
+	li $t2, 0
+	linha_azul_20:
+		bge  $t2, 20, endlinha_azul_20
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_azul_20
+	endlinha_azul_20: nop
+	
+	addi $t1, $s0, 27488
+	li $t2, 0
+	linha_azul_21:
+		bge  $t2, 19, endlinha_azul_21
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_azul_21
+	endlinha_azul_21: nop
+	
+	addi $t1, $s0, 28000
+	li $t2, 0
+	linha_azul_22:
+		bge  $t2, 18, endlinha_azul_22
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_azul_22
+	endlinha_azul_22: nop
+	
+	addi $t1, $s0, 28512
+	li $t2, 0
+	linha_azul_23:
+		bge  $t2, 15, endlinha_azul_23
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_azul_23
+	endlinha_azul_23: nop
+	
+	addi $t1, $s0, 29024
+	li $t2, 0
+	linha_azul_24:
+		bge  $t2, 12, endlinha_azul_24
+		sw   $a0, 0($t1)
+		addi $t1, $t1, 4
+		addi $t2, $t2, 1
+		j linha_azul_24
+	endlinha_azul_24: nop
+	
+	
+	# pop na pilha
+	lw $a0, 0($sp)
+	lw $s0, 4($sp)
+	lw $t0, 8($sp)
+	lw $t1, 12($sp)
+	lw $ra, 16($sp)
+	# desaloca pilha
+	addiu $sp, $sp, 24
+	jr $ra
+
+		
+	mining_melancholy:
+	
+		addiu $sp, $sp, -24
+		sw    $a0, 0($sp)
+		sw    $a1, 4($sp)
+		sw    $a2, 8($sp)
+		sw    $a3, 12($sp)
+		sw    $ra, 16($sp)
+		
+		li $v0, 31
+		li $a0, 74
+		li $a1, 400
+		li $a2, 1
+		li $a3, 50
+		syscall
+		
+		li $v0, 32
+		li $a0, 140
+		syscall
+	
+		li $v0, 31
+		li $a0, 76
+		li $a1, 400
+		li $a2, 1
+		li $a3, 50
+		syscall
+		
+		li $v0, 32
+		li $a0, 140
+		syscall
+		
+		li $v0, 31
+		li $a0, 77
+		li $a1, 1000
+		li $a2, 1
+		li $a3, 50
+		syscall
+		
+		
+		######################################
+		li $v0, 31
+		li $a0, 46
+		li $a1, 1000
+		li $a2, 38
+		li $a3, 50
+		syscall
+		
+		#######################
+		
+		li $v0, 32
+		li $a0, 1200
+		syscall
+		
+		li $v0, 31
+		li $a0, 79
+		li $a1, 400
+		li $a2, 1
+		li $a3, 50
+		syscall
+		
+		li $v0, 32
+		li $a0, 140
+		syscall
+		
+		li $v0, 31
+		li $a0, 76
+		li $a1, 1000
+		li $a2, 1
+		li $a3, 50
+		syscall
+		
+		li $v0, 31
+		li $a0, 48
+		li $a1, 1000
+		li $a2, 38
+		li $a3, 50
+		syscall
+		
+		#############################
+		li $v0, 32
+		li $a0, 1200
+		syscall
+		
+		li $v0, 31
+		li $a0, 72
+		li $a1, 1000
+		li $a2, 1
+		li $a3, 50
+		syscall
+		
+		li $v0, 31
+		li $a0, 45
+		li $a1, 1000
+		li $a2, 38
+		li $a3, 50
+		syscall
+		
+		li $v0, 32
+		li $a0, 700
+		syscall
+		
+		
+		###########################
+		
+		li $v0, 31
+		li $a0, 69
+		li $a1, 1000
+		li $a2, 1
+		li $a3, 50
+		syscall
+		
+		li $v0, 32
+		li $a0, 600
+		syscall
+		
+		li $v0, 31
+		li $a0, 74
+		li $a1, 1000
+		li $a2, 1
+		li $a3, 50
+		syscall
+		
+		li $v0, 31
+		li $a0, 50
+		li $a1, 1000
+		li $a2, 38
+		li $a3, 50
+		syscall
+		
+		li $v0, 32
+		li $a0, 170
+		syscall
+		
+		
+		###########################
+		li $v0, 32
+		li $a0, 800
+		syscall
+		
+		li $v0, 31
+		li $a0, 46
+		li $a1, 800
+		li $a2, 38
+		li $a3, 50
+		syscall
+		
+		li $v0, 32
+		li $a0, 170
+		syscall
+		
+		
+		
+		li $v0, 32
+		li $a0, 800
+		syscall
+		
+		li $v0, 31
+		li $a0, 48
+		li $a1, 800
+		li $a2, 38
+		li $a3, 50
+		syscall
+		
+		li $v0, 32
+		li $a0, 170
+		syscall
+		
+		
+		#############################
+		li $v0, 32
+		li $a0, 800
+		syscall
+		
+		li $v0, 31
+		li $a0, 50
+		li $a1, 800
+		li $a2, 38
+		li $a3, 50
+		syscall
+		
+		li $v0, 32
+		li $a0, 170
+		syscall
+		
+		
+		
+		lw    $a0, 0($sp)
+		lw    $a1, 4($sp)
+		lw    $a2, 8($sp)
+		lw    $a3, 12($sp)
+		lw    $ra, 16($sp)
+		
+		addiu $sp, $sp, 24
+		
+		jr $ra
+
+end: nop
