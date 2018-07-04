@@ -1,3 +1,38 @@
+.ktext 0x80000180
+move $k0, $at
+la $k1, _regs
+sw $k0, 0($k1)
+sw $v0, 4($k1)
+sw $a0, 8($k1)
+
+# Desabilita interrupcao keyboard
+#li      $t0, 0xffff0000
+#li      $t1, 0x00000000     
+#sw      $t1, ($t0)
+li $t3, 0x00000100	   # keyboard interrupt mask
+mfc0 $t4, $13
+and $t1, $t4, $t3	
+beq $t1, 0x0000100, if_keyboard_interrupt
+j end_if_keyboard_interrupt
+if_keyboard_interrupt:
+li $v0, 4
+la $a0, string
+syscall
+li $v0, 11
+lb $a0, 0xffff0004
+syscall
+end_if_keyboard_interrupt: nop
+
+lw $at, 0($k1)
+lw $v0, 4($k1)
+lw $a0, 8($k1)
+
+eret
+.kdata
+_regs: .space 12
+string: .asciiz "\nentrou na interrupcao!\n"
+
+#----------------------------------------------------------------------------------------------------------------------------------------------
 .data
 enter: .asciiz "\n"
 verde_aceso: .word 0x30e849
@@ -36,16 +71,40 @@ random_hard_buffer: .word 0 0 0 0 0 0 0 0
 .text
 .globl main
 main:
+
+# Enable interrupts in status register
+mfc0    $t0, $12
+# Disable all interrupt levels
+li      $t1, 0x0000ff00		
+not     $t1, $t1
+and     $t0, $t0, $t1
+# Enable console interrupt levels
+li      $t1, 0x00000100
+or      $t0, $t0, $t1
+# Enable exceptions globally
+li      $t1, 0x00000001
+or      $t0, $t0, $t1
+mtc0    $t0, $12
+li $v0, 32
+li $a0, 2000
+syscall
+# habilita interrupcao keyboard
+li      $t0, 0xffff0000     
+li      $t1, 0x00000002     
+sw      $t1, ($t0)
+
 #jal def_fundo
 intro:
 	# display START
 	lw $a0, branco
 	lw $a1, amarelo_claro
 	jal display_enter
-	jal key_wait
-	lb	$t0, 0xffff0004
-	lb $t1, enter
+	#jal key_wait
+	lb $t0, 0xffff0004
+	#lb $t1, enter
+	lb $t1, key_easy
 	bne $t0, $t1, intro
+	j end
 end_intro:
 	li $v0, 31
 	li $a0, 69
