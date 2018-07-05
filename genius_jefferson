@@ -8,18 +8,18 @@ sw $t0, 12($k1)
 sw $t1, 16($k1)
 sw $t2, 20($k1)
 sw $t3, 24($k1)
-
+# verifica qual interrupcao ocorreu
 mfc0 $t2, $13
+# mascara para interrupcao keyboard
 li $t3, 0x00000100
 and $t1, $t2, $t3
 beq $t1, 0x0000100, if_keyboard_interrupt
 j end_if_keyboard_interrupt
 
 if_keyboard_interrupt:
-
+# set flag player
 li $t0, 1
 sw $t0, player_flag
-
 end_if_keyboard_interrupt: nop
 
 lw $at, 0($k1)
@@ -77,170 +77,160 @@ player_flag:		.word 0
 i:			.word 0
 player_points_easy:	.word 0
 player_points_hard:	.word 0
-
+game_over_msg:		.asciiz "\nGAME OVER!\n"
+win_msg:		.asciiz "\nYOU WIN!\n"
 .text
 .globl main
 main:
 
 # Enable interrupts in status register
-	mfc0    $t0, $12
-
-	# Disable all interrupt levels
-	li      $t1, 0x0000ff00		#EXC_INT_ALL_MASK
-	not     $t1, $t1
-	and     $t0, $t0, $t1
-	
-	# Enable console interrupt levels
-	li      $t1, 0x00000100 	#EXC_INT3_MASK KEYBOARD
-	or      $t0, $t0, $t1
-	
-	# Enable exceptions globally
-	li      $t1, 0x00000001		#EXC_ENABLE_MASK
-	or      $t0, $t0, $t1
-	
-	mtc0    $t0, $12
-
+mfc0    $t0, $12
+# Disable all interrupt levels
+li      $t1, 0x0000ff00		#EXC_INT_ALL_MASK
+not     $t1, $t1
+and     $t0, $t0, $t1
+# Enable console interrupt levels
+li      $t1, 0x00000100 	#EXC_INT3_MASK KEYBOARD
+or      $t0, $t0, $t1
+# Enable exceptions globally
+li      $t1, 0x00000001		#EXC_ENABLE_MASK
+or      $t0, $t0, $t1
+mtc0    $t0, $12
+# carrega tela de fundo
 jal def_fundo
-
-li      $t0, 0xffff0000     # Receiver control register
-li      $t1, 0x00000002     # Interrupt enable bit
+# habilita interrupcao keyboard
+li      $t0, 0xffff0000    
+li      $t1, 0x00000002     
 sw      $t1, ($t0)
-
 intro:
-	# display START
-	lw $a0, branco
-	lw $a1, amarelo_claro
-	jal display_enter
-	#jal key_wait
-	lb $t0, 0xffff0004
-	lb $t1, enter
-	bne $t0, $t1, intro
+# display START
+lw $a0, branco
+lw $a1, amarelo_claro
+jal display_enter
+lb $t0, 0xffff0004
+lb $t1, enter
+bne $t0, $t1, intro
 end_intro:
-	li $v0, 31
-	li $a0, 69
-	li $a1, 400
-	li $a2, 24
-	li $a3, 87
-	syscall
-	# mark off display START
-	lw $a0, preto
-	lw $a1, preto
-	jal display_enter
+# som do botao
+li $v0, 31
+li $a0, 69
+li $a1, 400
+li $a2, 24
+li $a3, 87
+syscall
+# mark off display START
+lw $a0, preto
+lw $a1, preto
+jal display_enter
 enter_key:
 # display easy and hard difficulty
-	lw $a0, branco
-	lw $a1, amarelo_aceso
-	jal display_easy
-	lw $a0, vermelho_claro
-	lw $a1, amarelo_aceso
-	jal display_hard
-	#jal key_wait
-	lb	$s0, 0xffff0004
-	lb   $t0, key_easy
-	lb   $t1, key_hard
-	sne  $t3, $s0, $t0
-	sne  $t4, $s0, $t1
-	and  $t3, $t3, $t4
-	bnez $t3, enter_key
+lw $a0, branco
+lw $a1, amarelo_aceso
+jal display_easy
+lw $a0, vermelho_claro
+lw $a1, amarelo_aceso
+jal display_hard
+lb	$s0, 0xffff0004
+lb   $t0, key_easy
+lb   $t1, key_hard
+sne  $t3, $s0, $t0
+sne  $t4, $s0, $t1
+and  $t3, $t3, $t4
+bnez $t3, enter_key
 if_difficulty:
-	lb  $t0, key_easy
-	lb  $t1, key_hard
-	beq $s0, $t0, difficulty_easy
-	beq $s0, $t1, difficulty_hard
+lb  $t0, key_easy
+lb  $t1, key_hard
+beq $s0, $t0, difficulty_easy
+beq $s0, $t1, difficulty_hard
 difficulty_easy: 
-	# mark easy display and mark off hard display
-	lw $a0, branco
-	lw $a1, amarelo_aceso
-	jal display_easy	
-	# som do botao
-	li $v0, 31
-	li $a0, 69
-	li $a1, 400
-	li $a2, 24
-	li $a3, 87
-	syscall		
-	lw $a0, preto
-	lw $a1, amarelo_aceso
-	jal display_hard	
-	# level easy
-	#li $t5, 4	
-	lw $t5, level_easy	# $t5 = 4
-	#jal key_wait
-	lb	$t4, 0xffff0004
-	lb $t2, enter
-	lb $t3, key_hard			
-	li $t6, 0 # i = 0
-	beq $t4, $t2, while_rand_easy
-	beq $t4, $t3, difficulty_hard
-	j difficulty_easy	
+# mark easy display and mark off hard display
+lw $a0, branco
+lw $a1, amarelo_aceso
+jal display_easy	
+# som do botao
+li $v0, 31
+li $a0, 69
+li $a1, 400
+li $a2, 24
+li $a3, 87
+syscall		
+lw $a0, preto
+lw $a1, amarelo_aceso
+jal display_hard	
+# level easy	
+lw $t5, level_easy	# $t5 = 4
+lb	$t4, 0xffff0004
+lb $t2, enter
+lb $t3, key_hard			
+li $t6, 0 # i = 0
+beq $t4, $t2, while_rand_easy
+beq $t4, $t3, difficulty_hard
+j difficulty_easy	
 difficulty_hard:
-	# mark hard display and mark off easy display
-	lw $a0, vermelho_claro
-	lw $a1, amarelo_aceso
-	jal display_hard		
-	#som do botao
-	li $v0, 31
-	li $a0, 69
-	li $a1, 400
-	li $a2, 24
-	li $a3, 87
-	syscall	
-	lw $a0, preto
-	lw $a1, amarelo_aceso
-	jal display_easy		
-	# level hard
-	#li $t5, 8			
-	lw $t5, level_hard	# $t5 = 8
-	#jal key_wait
-	lb	$t4, 0xffff0004			
-	lb $t2, enter
-	lb $t3, key_easy		
-	#li $t6, 0 # i = 0
-	lw $t6, i
-	beq $t4, $t2, while_rand_hard
-	beq $t4, $t3, difficulty_easy
-	j difficulty_hard
+# mark hard display and mark off easy display
+lw $a0, vermelho_claro
+lw $a1, amarelo_aceso
+jal display_hard		
+#som do botao
+li $v0, 31
+li $a0, 69
+li $a1, 400
+li $a2, 24
+li $a3, 87
+syscall	
+lw $a0, preto
+lw $a1, amarelo_aceso
+jal display_easy		
+# level hard		
+lw $t5, level_hard	# $t5 = 8
+lb	$t4, 0xffff0004			
+lb $t2, enter
+lb $t3, key_easy		
+lw $t6, i	# $t6 = 0
+beq $t4, $t2, while_rand_hard
+beq $t4, $t3, difficulty_easy
+j difficulty_hard
+# gera numero aleatorio na dificuldade easy
 while_rand_easy:
-	# desabilita interrupcao keyboard
-	lw      $t0, 0xffff0000
-	li      $t1, 0x00000000
-	# set  flag de dificuldade [0]
-	li $t9, 0
-	sw $t9, random_flag_difficulty
-	
-	beqz $t5, end_while_rand	
-	jal generate_random
-	la $t0, random_easy_buffer
-	# prepara posicao do buffer
-	mul $t3, $t6, 4
-	add $t2, $t3, $t0
-	sw $v0, 0($t2)
-	addi $t6, $t6, 1	# i++
-	addi $t5, $t5, -1
-	j while_rand_easy
+# desabilita interrupcao keyboard
+lw      $t0, 0xffff0000
+li      $t1, 0x00000000
+# set  flag de dificuldade [0]
+li $t9, 0
+sw $t9, random_flag_difficulty
+beqz $t5, end_while_rand	
+jal generate_random
+la $t0, random_easy_buffer
+# prepara posicao do buffer
+mul $t3, $t6, 4
+add $t2, $t3, $t0
+sw $v0, 0($t2)
+addi $t6, $t6, 1	# i++
+addi $t5, $t5, -1
+j while_rand_easy
 while_rand_hard:
-	# desabilita interrupcao keyboard
-	lw      $t0, 0xffff0000
-	li      $t1, 0x00000000
-	# set  flag de dificuldade [1]
-	li $t9, 1
-	sw $t9, random_flag_difficulty
+# desabilita interrupcao keyboard
+lw      $t0, 0xffff0000
+li      $t1, 0x00000000
+# set  flag de dificuldade [1]
+li $t9, 1
+sw $t9, random_flag_difficulty
 	
-	beqz $t5, end_while_rand
-	jal generate_random
-	move $t0, $v0
-	li $v0, 1
-	move $a0, $t0
-	syscall
+beqz $t5, end_while_rand
+jal generate_random
+move $t0, $v0
+li $v0, 1
+move $a0, $t0
+syscall
 	
-	# prepara posicao do buffer
-	la $t0, random_hard_buffer
-	mul $t3, $t6, 4
-	add $t2, $t3, $t0
-	sw $v0, 0($t2)
-	addi $t6, $t6, 1	# i++
-	addi $t5, $t5, -1
-	j while_rand_hard
+# prepara posicao do buffer
+la $t0, random_hard_buffer
+mul $t3, $t6, 4
+add $t2, $t3, $t0
+sw $v0, 0($t2)
+addi $t6, $t6, 1	# i++
+addi $t5, $t5, -1
+j while_rand_hard
 end_while_rand: nop 
 
 lw $t6, i # i == 0
@@ -257,35 +247,35 @@ difficulty_level_player_hard:
 lw $t5, level_hard	# $t5 = 8
 
 while_rand_player:
-	lw $t8, player_flag
-	# habilita interrupcao keyboard
-	li      $t0, 0xffff0000
-	li      $t1, 0x00000002
-	sw      $t1, ($t0)
-	beqz $t5, end_while_rand_player
-	bnez $t8, if_player_cores
-	j while_rand_player
+lw $t8, player_flag
+# habilita interrupcao keyboard
+li      $t0, 0xffff0000
+li      $t1, 0x00000002
+sw      $t1, ($t0)
+beqz $t5, end_while_rand_player
+bnez $t8, if_player_cores
+j while_rand_player
 	
-	# le entrada do player, coloca no buffer e mostra a cor selecionada
-	if_player_cores:
-	# prepara posicao do player_easy_buffer
-	jal key_cores
-	lw $t0, random_flag_difficulty
-	bnez $t0, flag_hard
-	flag_easy:
-	la $t7, player_easy_buffer
-	j end_flag
-	flag_hard:
-	la $t7, player_hard_buffer
-	end_flag: nop
-	mul $t3, $t6, 4		# i * 4
-	add $t2, $t3, $t7
-	sw $v0, 0($t2)
-	addi $t6, $t6, 1	# i++
-	addi $t5, $t5, -1
-	li $t8, 0
-	sw $t8, player_flag
-	j while_rand_player
+# le entrada do player, coloca no buffer e mostra a cor selecionada
+if_player_cores:
+# prepara posicao do player_easy_buffer
+jal key_cores
+lw $t0, random_flag_difficulty
+bnez $t0, flag_hard
+flag_easy:
+la $t7, player_easy_buffer
+j end_flag
+flag_hard:
+la $t7, player_hard_buffer
+end_flag: nop
+mul $t3, $t6, 4		# i * 4
+add $t2, $t3, $t7
+sw $v0, 0($t2)
+addi $t6, $t6, 1	# i++
+addi $t5, $t5, -1
+li $t8, 0
+sw $t8, player_flag
+j while_rand_player
 end_while_rand_player: nop
 
 li $t6, 0
@@ -301,40 +291,40 @@ lw $t5, level_hard	# $t5 = 8
 
 while_sequence_verification:
 	
-	beqz $t5, end_while_sequence_verification
+beqz $t5, end_while_sequence_verification
 	
-	lw $t0, random_flag_difficulty
-	bnez $t0, flag_hard_verification
-	flag_easy_verification:
-	la $t0, random_easy_buffer
-	la $t1, player_easy_buffer
-	j end_flag_verification
-	flag_hard_verification:
-	la $t0, random_hard_buffer
-	la $t1, player_hard_buffer
-	end_flag_verification: nop
+lw $t0, random_flag_difficulty
+bnez $t0, flag_hard_verification
+flag_easy_verification:
+la $t0, random_easy_buffer
+la $t1, player_easy_buffer
+j end_flag_verification
+flag_hard_verification:
+la $t0, random_hard_buffer
+la $t1, player_hard_buffer
+end_flag_verification: nop
 	
-	mul $t3, $t6, 4		# i * 4
-	add $t2, $t3, $t0
-	lw $t8, 0($t2)		# $t8 = random_buffer[ i ]
-	li $v0, 1
-	move $a0, $t8
-	syscall
+mul $t3, $t6, 4		# i * 4
+add $t2, $t3, $t0
+lw $t8, 0($t2)		# $t8 = random_buffer[ i ]
+li $v0, 1
+move $a0, $t8
+syscall
+
+mul $t3, $t6, 4		# i * 4
+add $t2, $t3, $t1
+lw $t7, 0($t2)		# $t7 = player_buffer[ i ]
+move $t0, $v0
+li $v0, 1
+move $a0, $t0
+syscall
 	
-	mul $t3, $t6, 4		# i * 4
-	add $t2, $t3, $t1
-	lw $t7, 0($t2)		# $t7 = player_buffer[ i ]
-	move $t0, $v0
-	li $v0, 1
-	move $a0, $t0
-	syscall
+bne $t7, $t8, game_over
 	
-	bne $t7, $t8, game_over
+addi $t6, $t6, 1	# i++
+addi $t5, $t5, -1
 	
-	addi $t6, $t6, 1	# i++
-	addi $t5, $t5, -1
-	
-	j while_sequence_verification
+j while_sequence_verification
 end_while_sequence_verification: nop
 
 lw $t9, random_flag_difficulty
@@ -363,19 +353,18 @@ beq $t0, 2, winner	#  10 sequencias para vencer
 beqz $t9, while_rand_hard
 
 game_over: nop
-li $v0, 1
-li $a0, 23
+li $v0, 4
+la $a0, game_over_msg
 syscall
+jal mining_melancholy
 j end
 winner:
-li $v0, 1
-li $a0, 999
+li $v0, 4
+la $a0, win_msg
 syscall
 
 j end
 ####################################################################### END PROGRAM ###########################################################################
-
-
 generate_random:
 	addiu $sp, $sp, -20
 	sw    $a0, 0($sp)
@@ -383,7 +372,7 @@ generate_random:
 	sw    $s0, 8($sp)
 	sw    $ra  12($sp)
 	sw    $t0, 16($sp)
-	
+
 	lw $t0, random_flag_difficulty
 	#  generate random number -> range [0 to 3]
 	li $v0, 42
@@ -678,33 +667,7 @@ end_key: nop
     	lw $t1, 12($sp)
     	addiu $sp, $sp, 24
 jr $ra
-	
-	
 
-
- #  APAGAR FUNCAO 3333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333   
-    # Spin-wait for key to be pressed
-    key_wait:
-    	    
-	    lw      $t0, 0xffff0000
-	    andi    $t0, $t0, 0x00000001  # Isolate ready bit
-	    beqz    $t0, key_wait
-    
-	    # Read in new character from keyboard to low byte of $a0
-	    # and clear other 3 bytes of $a0
-	    lbu     $a0, 0xffff0004
-	    
-	    # Print character and newline
-	    li      $v0, 11
-	    syscall
-	    
-	    li      $a0, 10
-	    li      $v0, 11
-	    syscall
-	    
-	    
-	    jr      $ra
-# 333333333333333333333333333333333333333333333333333333333333333333333333333333333
 display_easy:
 	addiu $sp, $sp, -32
 	sw    $a0, 0($sp)
@@ -2715,7 +2678,6 @@ arco_azul:
 		j linha_azul_24
 	endlinha_azul_24: nop
 	
-	
 	# pop na pilha
 	lw $a0, 0($sp)
 	lw $s0, 4($sp)
@@ -2725,10 +2687,8 @@ arco_azul:
 	# desaloca pilha
 	addiu $sp, $sp, 24
 	jr $ra
-
 		
 	mining_melancholy:
-	
 		addiu $sp, $sp, -24
 		sw    $a0, 0($sp)
 		sw    $a1, 4($sp)
@@ -2765,16 +2725,12 @@ arco_azul:
 		li $a3, 50
 		syscall
 		
-		
-		######################################
 		li $v0, 31
 		li $a0, 46
 		li $a1, 1000
 		li $a2, 38
 		li $a3, 50
 		syscall
-		
-		#######################
 		
 		li $v0, 32
 		li $a0, 1200
@@ -2805,7 +2761,6 @@ arco_azul:
 		li $a3, 50
 		syscall
 		
-		#############################
 		li $v0, 32
 		li $a0, 1200
 		syscall
@@ -2828,9 +2783,6 @@ arco_azul:
 		li $a0, 700
 		syscall
 		
-		
-		###########################
-		
 		li $v0, 31
 		li $a0, 69
 		li $a1, 1000
@@ -2849,78 +2801,18 @@ arco_azul:
 		li $a3, 50
 		syscall
 		
-		li $v0, 31
+		li $v0, 33
 		li $a0, 50
 		li $a1, 1000
 		li $a2, 38
 		li $a3, 50
 		syscall
-		
-		li $v0, 32
-		li $a0, 170
-		syscall
-		
-		
-		###########################
-		li $v0, 32
-		li $a0, 800
-		syscall
-		
-		li $v0, 31
-		li $a0, 46
-		li $a1, 800
-		li $a2, 38
-		li $a3, 50
-		syscall
-		
-		li $v0, 32
-		li $a0, 170
-		syscall
-		
-		
-		
-		li $v0, 32
-		li $a0, 800
-		syscall
-		
-		li $v0, 31
-		li $a0, 48
-		li $a1, 800
-		li $a2, 38
-		li $a3, 50
-		syscall
-		
-		li $v0, 32
-		li $a0, 170
-		syscall
-		
-		
-		#############################
-		li $v0, 32
-		li $a0, 800
-		syscall
-		
-		li $v0, 31
-		li $a0, 50
-		li $a1, 800
-		li $a2, 38
-		li $a3, 50
-		syscall
-		
-		li $v0, 32
-		li $a0, 170
-		syscall
-		
-		
-		
+	
 		lw    $a0, 0($sp)
 		lw    $a1, 4($sp)
 		lw    $a2, 8($sp)
 		lw    $a3, 12($sp)
 		lw    $ra, 16($sp)
-		
 		addiu $sp, $sp, 24
-		
 		jr $ra
-
 end: nop
