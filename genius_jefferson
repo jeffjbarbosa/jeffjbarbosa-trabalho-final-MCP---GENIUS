@@ -78,11 +78,19 @@ i:			.word 0
 player_points_easy:	.word 0
 player_points_hard:	.word 0
 game_over_msg:		.asciiz "\nGAME OVER!\n"
-win_msg:		.asciiz "\nYOU WIN!\n"
+win_msg:			.asciiz "\nYOU WIN!\n"
+legenda: 		.asciiz "verde -> [w = 0] vermelho -> [e = 1] amarelo -> [s = 2] azul -> [d = 3]:\n\n"
+cheat:			.asciiz "cheat: "
+space:			.asciiz " "
 .text
 .globl main
 main:
-
+li $v0, 4
+la $a0, legenda
+syscall
+li $v0, 4
+la $a0, cheat
+syscall
 # Enable interrupts in status register
 mfc0    $t0, $12
 # Disable all interrupt levels
@@ -218,11 +226,11 @@ sw $t9, random_flag_difficulty
 	
 beqz $t5, end_while_rand
 jal generate_random
-move $t0, $v0
+move $s3, $v0
 li $v0, 1
-move $a0, $t0
+move $a0, $s3
 syscall
-	
+move $v0, $s3
 # prepara posicao do buffer
 la $t0, random_hard_buffer
 mul $t3, $t6, 4
@@ -307,14 +315,11 @@ end_flag_verification: nop
 mul $t3, $t6, 4		# i * 4
 add $t2, $t3, $t0
 lw $t8, 0($t2)		# $t8 = random_buffer[ i ]
-li $v0, 1
-move $a0, $t8
-syscall
 
 mul $t3, $t6, 4		# i * 4
 add $t2, $t3, $t1
 lw $t7, 0($t2)		# $t7 = player_buffer[ i ]
-	
+
 bne $t7, $t8, game_over
 	
 addi $t6, $t6, 1	# i++
@@ -325,7 +330,7 @@ end_while_sequence_verification: nop
 
 lw $t9, random_flag_difficulty
 
-#bnez $t9, hard_points_lable
+bnez $t9, hard_points_lable
 
 easy_points_lable:
 lw $t0, player_points_easy
@@ -334,16 +339,29 @@ sw $t0, player_points_easy
 lw $t5, level_easy	# $t5 = 4
 li $t6, 0		# para gerar outra sequencia aleatoria
 beq $t0, 5, winner	# 5 sequencias para vencer
+# sleep 1000 ms
+li $v0, 32
+li $a0, 1000
+syscall
 beqz $t9, while_rand_easy
 
 hard_points_lable:
-#lw $t0, player_points_hard
-#addi $t0, $t0, 1
-#sw $t0, player_points_hard
-#lw $t5, level_hard	# $t5 = 8
-#li $t6, 0		# para gerar outra sequencia aleatoria
-#beq $t0, 2, winner	#  2 sequencias para vencer
-#bnez $t9, while_rand_hard
+lw $t0, player_points_hard
+addi $t0, $t0, 1
+sw $t0, player_points_hard
+lw $t5, level_hard	# $t5 = 8
+li $t6, 0		# para gerar outra sequencia aleatoria
+beq $t0, 2, winner	#  2 sequencias para vencer
+move $t0, $v0
+li $v0, 4
+la $a0, space
+syscall
+# sleep 1000 ms
+li $v0, 32
+li $a0, 1000
+syscall
+move $v0, $t0
+bnez $t9, while_rand_hard
 
 game_over: nop
 li $v0, 4
