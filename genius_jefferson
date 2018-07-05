@@ -260,8 +260,8 @@ j while_rand_player
 if_player_cores:
 # prepara posicao do player_easy_buffer
 jal key_cores
-lw $t0, random_flag_difficulty
-bnez $t0, flag_hard
+lw $t9, random_flag_difficulty
+bnez $t9, flag_hard
 flag_easy:
 la $t7, player_easy_buffer
 j end_flag
@@ -293,8 +293,8 @@ while_sequence_verification:
 	
 beqz $t5, end_while_sequence_verification
 	
-lw $t0, random_flag_difficulty
-bnez $t0, flag_hard_verification
+lw $t9, random_flag_difficulty
+bnez $t9, flag_hard_verification
 flag_easy_verification:
 la $t0, random_easy_buffer
 la $t1, player_easy_buffer
@@ -314,10 +314,6 @@ syscall
 mul $t3, $t6, 4		# i * 4
 add $t2, $t3, $t1
 lw $t7, 0($t2)		# $t7 = player_buffer[ i ]
-move $t0, $v0
-li $v0, 1
-move $a0, $t0
-syscall
 	
 bne $t7, $t8, game_over
 	
@@ -329,7 +325,7 @@ end_while_sequence_verification: nop
 
 lw $t9, random_flag_difficulty
 
-bnez $t9, hard_points_lable
+#bnez $t9, hard_points_lable
 
 easy_points_lable:
 lw $t0, player_points_easy
@@ -337,20 +333,17 @@ addi $t0, $t0, 1
 sw $t0, player_points_easy
 lw $t5, level_easy	# $t5 = 4
 li $t6, 0		# para gerar outra sequencia aleatoria
-li $v0, 1
-move $a0, $t0
-syscall
 beq $t0, 5, winner	# 5 sequencias para vencer
 beqz $t9, while_rand_easy
 
 hard_points_lable:
-lw $t0, player_points_hard
-addi $t0, $t0, 1
-sw $t0, player_points_hard
-lw $t5, level_hard	# $t5 = 8
-li $t6, 0		# para gerar outra sequencia aleatoria
-beq $t0, 2, winner	#  10 sequencias para vencer
-beqz $t9, while_rand_hard
+#lw $t0, player_points_hard
+#addi $t0, $t0, 1
+#sw $t0, player_points_hard
+#lw $t5, level_hard	# $t5 = 8
+#li $t6, 0		# para gerar outra sequencia aleatoria
+#beq $t0, 2, winner	#  2 sequencias para vencer
+#bnez $t9, while_rand_hard
 
 game_over: nop
 li $v0, 4
