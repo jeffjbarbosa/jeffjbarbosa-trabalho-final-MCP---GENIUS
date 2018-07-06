@@ -119,13 +119,7 @@ lb $t0, 0xffff0004
 lb $t1, enter
 bne $t0, $t1, intro
 end_intro:
-# som do botao
-li $v0, 31
-li $a0, 69
-li $a1, 400
-li $a2, 24
-li $a3, 87
-syscall
+
 # mark off display START
 lw $a0, preto
 lw $a1, preto
@@ -155,13 +149,7 @@ difficulty_easy:
 lw $a0, branco
 lw $a1, amarelo_aceso
 jal display_easy	
-# som do botao
-li $v0, 31
-li $a0, 69
-li $a1, 400
-li $a2, 24
-li $a3, 87
-syscall		
+		
 lw $a0, preto
 lw $a1, amarelo_aceso
 jal display_hard	
@@ -179,13 +167,7 @@ difficulty_hard:
 lw $a0, vermelho_claro
 lw $a1, amarelo_aceso
 jal display_hard		
-#som do botao
-li $v0, 31
-li $a0, 69
-li $a1, 400
-li $a2, 24
-li $a3, 87
-syscall	
+	
 lw $a0, preto
 lw $a1, amarelo_aceso
 jal display_easy		
